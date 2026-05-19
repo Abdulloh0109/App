@@ -508,26 +508,23 @@ function isMarkAsExportedAction(currentAccountID: number, currentUserLogin: stri
     const arePaymentsEnabled = arePaymentsEnabledUtils(policy);
     const isReportApproved = isReportApprovedUtils({report});
     const isReportClosed = isClosedReportUtils(report);
-    const isReportClosedOrApproved = isReportClosed || isReportApproved;
+    const isReportReimbursed = isSettled(report);
+    const isReportFinished = isReportClosed || isReportApproved || isReportReimbursed;
 
-    if (isReportPayer && arePaymentsEnabled && isReportClosedOrApproved) {
+    if (isReportPayer && arePaymentsEnabled && isReportFinished) {
         return true;
     }
-
-    const isReportReimbursed = isSettled(report);
-    const connectedIntegration = getConnectedIntegration(policy);
-    const syncEnabled = hasIntegrationAutoSync(policy, connectedIntegration);
-    const isReportFinished = isReportClosedOrApproved || isReportReimbursed;
 
     if (!isReportFinished) {
         return false;
     }
 
+    const connectedIntegration = getConnectedIntegration(policy);
+    const syncEnabled = hasIntegrationAutoSync(policy, connectedIntegration);
     const isAdmin = policy?.role === CONST.POLICY.ROLE.ADMIN;
-
     const isExporter = isPreferredExporter(policy, currentUserLogin);
 
-    return (isAdmin && syncEnabled) || (isExporter && !syncEnabled);
+    return isAdmin || (isExporter && !syncEnabled);
 }
 
 function isHoldAction(
