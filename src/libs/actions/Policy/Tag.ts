@@ -27,7 +27,7 @@ import enhanceParameters from '@libs/Network/enhanceParameters';
 import * as PolicyUtils from '@libs/PolicyUtils';
 import {goBackWhenEnableFeature} from '@libs/PolicyUtils';
 import {pushTransactionViolationsOnyxData} from '@libs/ReportUtils';
-import {getTagArrayFromName} from '@libs/TransactionUtils';
+import {getTag, getTagArrayFromName} from '@libs/TransactionUtils';
 import type {PolicyTagList} from '@pages/workspace/tags/types';
 import {getFinishOnboardingTaskOnyxData} from '@userActions/Task';
 import CONST from '@src/CONST';
@@ -35,7 +35,7 @@ import ONYXKEYS from '@src/ONYXKEYS';
 import type {ImportedSpreadsheet, Policy, PolicyTag, PolicyTagLists, PolicyTags, RecentlyUsedTags, Report, ReportAction} from '@src/types/onyx';
 import type {OnyxValueWithOfflineFeedback} from '@src/types/onyx/OnyxCommon';
 import type {ApprovalRule} from '@src/types/onyx/Policy';
-import type {OnyxData} from '@src/types/onyx/Request';
+import type {AnyOnyxUpdate, OnyxData} from '@src/types/onyx/Request';
 
 type CreatePolicyTagParams = {
     policyData: PolicyData;
@@ -524,6 +524,26 @@ function deletePolicyTags(policyData: PolicyData, tagsToDelete: string[]) {
     };
 
     pushTransactionViolationsOnyxData(onyxData, policyData, {}, {}, policyTagsOptimisticData);
+
+    const deletedTagsSet = new Set(tagsToDelete);
+    for (const {transactions} of Object.values(policyData.transactionsAndViolations)) {
+        for (const transaction of Object.values(transactions)) {
+            if (!transaction?.tag || !deletedTagsSet.has(getTag(transaction))) {
+                continue;
+            }
+            const originalTag = transaction.tag;
+            (onyxData.optimisticData as AnyOnyxUpdate[])?.push({
+                onyxMethod: Onyx.METHOD.MERGE,
+                key: `${ONYXKEYS.COLLECTION.TRANSACTION}${transaction.transactionID}`,
+                value: {tag: ''},
+            });
+            (onyxData.failureData as AnyOnyxUpdate[])?.push({
+                onyxMethod: Onyx.METHOD.MERGE,
+                key: `${ONYXKEYS.COLLECTION.TRANSACTION}${transaction.transactionID}`,
+                value: {tag: originalTag},
+            });
+        }
+    }
 
     const parameters = {
         policyID,
