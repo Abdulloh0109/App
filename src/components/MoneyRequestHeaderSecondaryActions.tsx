@@ -57,6 +57,7 @@ import {
     hasCustomUnitOutOfPolicyViolation as hasCustomUnitOutOfPolicyViolationTransactionUtils,
     isDistanceRequest,
     isPerDiemRequest,
+    isSplitChildTransaction,
 } from '@libs/TransactionUtils';
 import {dismissRejectUseExplanation} from '@userActions/IOU/RejectMoneyRequest';
 import {setDeleteTransactionNavigateBackUrl} from '@userActions/Report';
@@ -428,7 +429,7 @@ function MoneyRequestHeaderSecondaryActions({reportID, onBackButtonPress}: Money
                     }
                     const backToRoute = route.params?.backTo ?? Navigation.getActiveRoute();
                     setDeleteTransactionNavigateBackUrl(backToRoute);
-                    if (isTrackExpenseAction(parentReportAction)) {
+                    if (isTrackExpenseAction(parentReportAction) && !isSplitChildTransaction(transaction)) {
                         deleteTrackExpense({
                             chatReportID: report?.parentReportID,
                             chatReport: parentReport,

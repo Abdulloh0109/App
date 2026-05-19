@@ -162,9 +162,11 @@ function updateSplitTransactions({
 
     const isCreationOfSplits = originalChildTransactions.length === 0;
     const hasEditableSplitExpensesLeft = splitExpenses.some((expense) => (expense.statusNum ?? 0) < CONST.REPORT.STATUS_NUM.SUBMITTED);
-    // Don't revert split if there are orphaned children (reportID '0') - they're still part of the split
-    const isReverseSplitOperation =
-        splitExpenses.length === 1 && originalChildTransactions.length > 0 && hasEditableSplitExpensesLeft && allChildTransactions.length === originalChildTransactions.length;
+    // Block revert only when an orphaned child will REMAIN after this operation.
+    // If the orphan is being removed by this very operation (i.e. not present in splitExpenses), the post-operation state has no orphan and revert is safe.
+    const splitExpenseIDs = new Set(splitExpenses.map((expense) => expense.transactionID).filter((id): id is string => !!id));
+    const willHaveRemainingOrphan = allChildTransactions.some((tx) => tx?.reportID === CONST.REPORT.UNREPORTED_REPORT_ID && !!tx?.transactionID && splitExpenseIDs.has(tx.transactionID));
+    const isReverseSplitOperation = splitExpenses.length === 1 && originalChildTransactions.length > 0 && hasEditableSplitExpensesLeft && !willHaveRemainingOrphan;
 
     let splitThreadComments: OnyxTypes.ReportAction[] = [];
     let splitThreadReportAction: OnyxTypes.ReportAction | undefined;
@@ -1363,8 +1365,9 @@ function updateSplitTransactionsFromSplitExpensesFlow(params: UpdateSplitTransac
     const allChildTransactions = getChildTransactions(params.allTransactionsList, params.allReportsList, originalTransactionID, true);
     const originalChildTransactions = allChildTransactions.filter((tx) => tx?.reportID !== CONST.REPORT.UNREPORTED_REPORT_ID);
     const hasEditableSplitExpensesLeft = splitExpenses.some((expense) => (expense.statusNum ?? 0) < CONST.REPORT.STATUS_NUM.SUBMITTED);
-    const isReverseSplitOperation =
-        splitExpenses.length === 1 && originalChildTransactions.length > 0 && hasEditableSplitExpensesLeft && allChildTransactions.length === originalChildTransactions.length;
+    const splitExpenseIDs = new Set(splitExpenses.map((expense) => expense.transactionID).filter((id): id is string => !!id));
+    const willHaveRemainingOrphan = allChildTransactions.some((tx) => tx?.reportID === CONST.REPORT.UNREPORTED_REPORT_ID && !!tx?.transactionID && splitExpenseIDs.has(tx.transactionID));
+    const isReverseSplitOperation = splitExpenses.length === 1 && originalChildTransactions.length > 0 && hasEditableSplitExpensesLeft && !willHaveRemainingOrphan;
     const expenseReportID = params.expenseReport?.reportID;
     const isLastTransactionInReport =
         isReverseSplitOperation && Object.values(params.allTransactionsList ?? {}).filter((itemTransaction) => itemTransaction?.reportID === expenseReportID).length === 1;

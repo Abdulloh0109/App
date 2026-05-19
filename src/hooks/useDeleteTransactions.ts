@@ -157,8 +157,14 @@ function useDeleteTransactions({report, reportActions, policy}: UseDeleteTransac
                     const originalTransaction = allTransactions?.[`${ONYXKEYS.COLLECTION.TRANSACTION}${transaction?.comment?.originalTransactionID}`];
                     const {isExpenseSplit} = getOriginalTransactionWithSplitInfo(transaction, originalTransaction);
                     const originalTransactionID = transaction?.comment?.originalTransactionID;
+                    // Also route split children that live in a chat-type report (e.g., unreported self-DM track expenses)
+                    // through the split-aware path. `isExpenseSplit` filters them out because of the report.type !== EXPENSE check,
+                    // but the parent transaction having no `comment.splits` (the bill-split marker) is the authoritative signal
+                    // that this is an expense split, regardless of where the child currently lives.
+                    const isExpenseSplitChildLoose =
+                        !!originalTransactionID && transaction?.comment?.source === CONST.IOU.TYPE.SPLIT && !!originalTransaction && !originalTransaction?.comment?.splits;
 
-                    if (isExpenseSplit && originalTransactionID) {
+                    if ((isExpenseSplit || isExpenseSplitChildLoose) && originalTransactionID) {
                         acc.splitTransactionsByOriginalTransactionID[originalTransactionID] ??= [];
                         acc.splitTransactionsByOriginalTransactionID[originalTransactionID].push(item);
                     } else {

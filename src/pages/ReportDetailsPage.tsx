@@ -108,7 +108,7 @@ import {
     shouldDisableRename as shouldDisableRenameUtil,
 } from '@libs/ReportUtils';
 import StringUtils from '@libs/StringUtils';
-import {isDemoTransaction} from '@libs/TransactionUtils';
+import {isDemoTransaction, isSplitChildTransaction} from '@libs/TransactionUtils';
 import {getNavigationUrlOnMoneyRequestDelete} from '@userActions/IOU/DeleteMoneyRequest';
 import {deleteTrackExpense, getNavigationUrlAfterTrackExpenseDelete} from '@userActions/IOU/TrackExpense';
 import {
@@ -890,7 +890,7 @@ function ReportDetailsPage({policy, report, route, reportMetadata, reportLoading
             return;
         }
 
-        const isTrackExpense = isTrackExpenseAction(requestParentReportAction);
+        const isTrackExpense = isTrackExpenseAction(requestParentReportAction) && !isSplitChildTransaction(iouTransaction);
 
         if (isTrackExpense) {
             deleteTrackExpense({
@@ -920,6 +920,7 @@ function ReportDetailsPage({policy, report, route, reportMetadata, reportLoading
         caseID,
         requestParentReportAction,
         iouTransactionID,
+        iouTransaction,
         report,
         parentReport,
         isReportArchived,
