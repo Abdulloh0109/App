@@ -141,7 +141,7 @@ function WorkspaceMoreFeaturesPage({policy, route}: WorkspaceMoreFeaturesPagePro
         if (action !== ModalActions.CONFIRM) {
             return;
         }
-        Navigation.navigate(ROUTES.POLICY_ACCOUNTING.getRoute(policyID));
+        Navigation.setNavigationActionToMicrotaskQueue(() => Navigation.navigate(ROUTES.POLICY_ACCOUNTING.getRoute(policyID)));
     };
 
     const warnDisconnectAccountingFirst = async () => {
@@ -157,7 +157,7 @@ function WorkspaceMoreFeaturesPage({policy, route}: WorkspaceMoreFeaturesPagePro
         if (action !== ModalActions.CONFIRM) {
             return;
         }
-        Navigation.navigate(ROUTES.POLICY_ACCOUNTING.getRoute(policyID));
+        Navigation.setNavigationActionToMicrotaskQueue(() => Navigation.navigate(ROUTES.POLICY_ACCOUNTING.getRoute(policyID)));
     };
 
     const warnReceiptPartnersStillConnected = async () => {
