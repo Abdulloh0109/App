@@ -22,7 +22,10 @@ function getUpdatedSubstitutionsMap(query: string, substitutions: SubstitutionMa
     const searchAutocompleteQueryRanges = parsedQuery.ranges;
 
     if (searchAutocompleteQueryRanges.length === 0) {
-        return {};
+        // The autocomplete parser returned no ranges — this happens during transient typing states
+        // (e.g. "group-by:" with no value yet). Returning {} would drop all existing substitutions
+        // like from:<accountID>, causing filters to disappear on submit.
+        return substitutions;
     }
 
     // Assign occurrence index per (key, value) so we preserve indexed keys for duplicates (e.g. same workspace name)

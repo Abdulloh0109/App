@@ -601,7 +601,14 @@ function getCachedSearchQueryJSON(query: SearchQueryString, rawQuery?: SearchQue
     try {
         const result = parseSearchQuery(query) as SearchQueryJSON;
         const flatFilters = getFilters(result);
-        const rawFilterList = rawQuery ? getRawFilterListFromQuery(rawQuery) : result.rawFilterList;
+        let rawFilterList = rawQuery ? getRawFilterListFromQuery(rawQuery) : result.rawFilterList;
+
+        // Normalize groupBy: clear invalid values so all downstream consumers are safe.
+        // Without this, an unknown value like "reports" reaches translate() calls and crashes renderers.
+        if (result.groupBy !== undefined && !(Object.values(CONST.SEARCH.GROUP_BY) as string[]).includes(result.groupBy)) {
+            result.groupBy = undefined;
+            rawFilterList = rawFilterList?.filter((f) => f.key !== CONST.SEARCH.SYNTAX_ROOT_KEYS.GROUP_BY && f.key !== CONST.SEARCH.SYNTAX_ROOT_KEYS.VIEW);
+        }
 
         // Add the full input and hash to the results
         result.inputQuery = query;

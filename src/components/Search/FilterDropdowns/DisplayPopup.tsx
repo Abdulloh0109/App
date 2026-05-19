@@ -13,7 +13,7 @@ import useThemeStyles from '@hooks/useThemeStyles';
 import {close} from '@libs/actions/Modal';
 import Navigation from '@libs/Navigation/Navigation';
 import {buildFilterQueryWithSortDefaults} from '@libs/SearchQueryUtils';
-import {getGroupBySections, getSearchColumnTranslationKey, getViewOptions} from '@libs/SearchUIUtils';
+import {getGroupBySections, getSearchColumnTranslationKey, getValidGroupBy, getViewOptions} from '@libs/SearchUIUtils';
 import CONST from '@src/CONST';
 import ONYXKEYS from '@src/ONYXKEYS';
 import ROUTES from '@src/ROUTES';
@@ -67,7 +67,7 @@ function DisplayPopup({queryJSON, searchResults, closeOverlay, onSort}: DisplayP
         const isTripType = queryJSON.type === CONST.SEARCH.DATA_TYPES.TRIP;
         const sortByValue = queryJSON.sortBy;
         const sortOrderValue = queryJSON.sortOrder;
-        const groupByValue = searchAdvancedFilters[CONST.SEARCH.SYNTAX_ROOT_KEYS.GROUP_BY];
+        const groupByValue = getValidGroupBy(searchAdvancedFilters[CONST.SEARCH.SYNTAX_ROOT_KEYS.GROUP_BY]);
         const groupCurrencyValue = searchAdvancedFilters[CONST.SEARCH.SYNTAX_FILTER_KEYS.GROUP_CURRENCY];
         const viewValue = searchAdvancedFilters[CONST.SEARCH.SYNTAX_ROOT_KEYS.VIEW];
 
