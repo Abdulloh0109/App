@@ -181,11 +181,17 @@ function DynamicTwoFactorAuthPage() {
                             isDisabled={!isUserValidated}
                             text={translate('twoFactorAuth.downloadCodes')}
                             onPress={() => {
-                                localFileDownload(TWO_FACTOR_AUTH_RECOVERY_CODES_FILENAME, recoveryCodes, translate, undefined, undefined, false);
                                 setError('');
                                 setCodesAreCopied();
                                 announceStatus(translate('fileDownload.success.title'));
                                 Navigation.navigate(createDynamicRoute(DYNAMIC_ROUTES.TWO_FACTOR_AUTH_VERIFY.path, backPath), {forceReplace: true});
+                                // Trigger the actual download on the next tick so the forceReplace navigation above commits first.
+                                // On macOS Chrome the download pops a native "Save as" dialog that steals window focus; firing it in the
+                                // same tick as the navigation races the RHP transition and dismisses the whole 2FA modal instead of
+                                // advancing to the verify step (see https://github.com/Expensify/App/issues/92564).
+                                setTimeout(() => {
+                                    localFileDownload(TWO_FACTOR_AUTH_RECOVERY_CODES_FILENAME, recoveryCodes, translate, undefined, undefined, false);
+                                }, 0);
                             }}
                         />
                     )}
