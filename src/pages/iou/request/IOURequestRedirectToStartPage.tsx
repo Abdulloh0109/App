@@ -26,7 +26,14 @@ function IOURequestRedirectToStartPage({route}: IOURequestRedirectToStartPagePro
         // Redirect the person to the right start page using a random reportID
         const optimisticReportID = generateReportID();
         if (iouRequestType === CONST.IOU.REQUEST_TYPE.DISTANCE) {
-            Navigation.navigate(ROUTES.MONEY_REQUEST_CREATE_TAB_DISTANCE.getRoute(CONST.IOU.ACTION.CREATE, iouType, CONST.IOU.OPTIMISTIC_TRANSACTION_ID, optimisticReportID));
+            // The legacy combined-tab Distance route only renders its Distance tab for split expenses; for every other
+            // expense type regular distance creation now lives in the dedicated distance-new flow (matching the FAB),
+            // so routing there avoids falling back to the Manual tab.
+            if (iouType === CONST.IOU.TYPE.SPLIT) {
+                Navigation.navigate(ROUTES.MONEY_REQUEST_CREATE_TAB_DISTANCE.getRoute(CONST.IOU.ACTION.CREATE, iouType, CONST.IOU.OPTIMISTIC_TRANSACTION_ID, optimisticReportID));
+            } else {
+                Navigation.navigate(ROUTES.DISTANCE_REQUEST_CREATE_TAB_MAP.getRoute(CONST.IOU.ACTION.CREATE, iouType, CONST.IOU.OPTIMISTIC_TRANSACTION_ID, optimisticReportID));
+            }
         } else if (iouRequestType === CONST.IOU.REQUEST_TYPE.MANUAL) {
             Navigation.navigate(ROUTES.MONEY_REQUEST_CREATE_TAB_MANUAL.getRoute(CONST.IOU.ACTION.CREATE, iouType, CONST.IOU.OPTIMISTIC_TRANSACTION_ID, optimisticReportID));
         } else if (iouRequestType === CONST.IOU.REQUEST_TYPE.SCAN) {
