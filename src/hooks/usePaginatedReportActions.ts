@@ -2,7 +2,7 @@ import {useCallback, useMemo, useRef} from 'react';
 import type {OnyxEntry} from 'react-native-onyx';
 import getNonEmptyStringOnyxID from '@libs/getNonEmptyStringOnyxID';
 import {getContinuousChain} from '@libs/PaginationUtils';
-import {getSortedReportActionsForDisplay} from '@libs/ReportActionsUtils';
+import {getSortedReportActionsForDisplay, isReportActionUnread} from '@libs/ReportActionsUtils';
 import {canUserPerformWriteAction} from '@libs/ReportUtils';
 import ONYXKEYS from '@src/ONYXKEYS';
 import type {ReportAction, ReportActions} from '@src/types/onyx';
@@ -61,11 +61,15 @@ function usePaginatedReportActions(reportID: string | undefined, reportActionID?
         }
 
         const initialLastReadTime = initialReportLastReadTime.current;
-        if (!initialLastReadTime || !sortedAllReportActions?.length) {
+        if (!sortedAllReportActions?.length) {
             return undefined;
         }
 
-        return sortedAllReportActions.findLast((reportAction) => reportAction.created > initialLastReadTime)?.reportActionID;
+        // When lastReadTime is empty (e.g. a brand-new conversation that was never opened) every non-CREATED
+        // action is unread, so anchor to the oldest unread action instead of bailing out and losing the unread
+        // marker entirely. isReportActionUnread encodes both cases: for an empty lastReadTime it returns
+        // !isCreatedAction, and for a non-empty one it is equivalent to the previous `created > lastReadTime` check.
+        return sortedAllReportActions.findLast((reportAction) => isReportActionUnread(reportAction, initialLastReadTime))?.reportActionID;
         /* eslint-enable react-hooks/refs */
     }, [treatAsNoPaginationAnchor, reportActionID, shouldLinkToOldestUnreadReportAction, sortedAllReportActions]);
 
