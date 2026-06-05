@@ -123,6 +123,16 @@ function useDiscardChangesConfirmation({getHasUnsavedChanges, onCancel, onVisibi
             if (!getHasUnsavedChanges()) {
                 return;
             }
+            // When the discard modal closes, it defers its own `history.back()` to drop the guard history
+            // entry it pushed, and that fires `transitionStart` again. On iOS mWeb (Safari swipe back) this
+            // is the only path the discard flow runs through, so without this guard tapping Cancel/Confirm
+            // immediately re-opens the modal and it can never be dismissed. The back already returned us to
+            // this page, so we just bail out (no `window.history.go(1)`) instead of treating it as a real
+            // user navigation. Mirrors the `useBeforeRemove` guard above.
+            if (isDiscardModalOpen.current || shouldIgnoreNextBeforeRemove.current) {
+                clearShouldIgnoreNextBeforeRemove();
+                return;
+            }
             shouldNavigateBack.current = true;
             if (closing) {
                 window.history.go(1);
@@ -133,7 +143,7 @@ function useDiscardChangesConfirmation({getHasUnsavedChanges, onCancel, onVisibi
         });
 
         return unsubscribe;
-    }, [navigation, getHasUnsavedChanges, showDiscardModal]);
+    }, [navigation, getHasUnsavedChanges, showDiscardModal, clearShouldIgnoreNextBeforeRemove]);
 
     useEffect(() => clearShouldIgnoreNextBeforeRemove, [clearShouldIgnoreNextBeforeRemove]);
 }
