@@ -1036,6 +1036,7 @@ function WorkspaceMembersPage({personalDetails, route, policy}: WorkspaceMembers
             route={route}
             icon={!selectionModeHeader ? illustrations.ReceiptWrangler : undefined}
             headerContent={!shouldDisplayButtonsInSeparateLine && getHeaderButtons()}
+            shouldShowBackButton={shouldDisplayButtonsInSeparateLine}
             testID="WorkspaceMembersPage"
             shouldShowLoading={false}
             shouldUseHeadlineHeader={!selectionModeHeader}

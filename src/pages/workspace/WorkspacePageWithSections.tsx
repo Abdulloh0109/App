@@ -123,7 +123,7 @@ function WorkspacePageWithSections({
     shouldUseScrollView = false,
     showLoadingAsFirstRender = true,
     shouldSkipVBBACall = true,
-    shouldShowBackButton = false,
+    shouldShowBackButton,
     shouldShowLoading = true,
     shouldShowOfflineIndicatorInWideScreen = false,
     shouldShowNonAdmin = false,
@@ -234,7 +234,7 @@ function WorkspacePageWithSections({
                 <HeaderWithBackButton
                     title={headerText}
                     onBackButtonPress={handleOnBackButtonPress}
-                    shouldShowBackButton={shouldUseNarrowLayout || shouldShowBackButton}
+                    shouldShowBackButton={shouldShowBackButton ?? shouldUseNarrowLayout}
                     icon={icon ?? undefined}
                     shouldShowThreeDotsButton={shouldShowThreeDotsButton}
                     threeDotsMenuItems={threeDotsMenuItems}

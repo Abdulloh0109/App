@@ -519,7 +519,7 @@ function PolicyDistanceRatesPage({
                     icon={!selectionModeHeader ? CarIce : undefined}
                     shouldUseHeadlineHeader={!selectionModeHeader}
                     title={translate(!selectionModeHeader ? 'workspace.common.distanceRates' : 'common.selectMultiple')}
-                    shouldShowBackButton={shouldUseNarrowLayout}
+                    shouldShowBackButton={shouldDisplayButtonsInSeparateLine}
                     shouldDisplayHelpButton
                     onBackButtonPress={() => {
                         if (isMobileSelectionModeEnabled) {

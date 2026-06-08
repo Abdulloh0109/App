@@ -768,7 +768,7 @@ function WorkspaceCategoriesPage({route}: WorkspaceCategoriesPageProps) {
                 offlineIndicatorStyle={styles.mtAuto}
             >
                 <HeaderWithBackButton
-                    shouldShowBackButton={shouldUseNarrowLayout}
+                    shouldShowBackButton={shouldDisplayButtonsInSeparateLine}
                     title={selectionModeHeader ? translate('common.selectMultiple') : translate('workspace.common.categories')}
                     icon={!selectionModeHeader ? illustrations.FolderOpen : undefined}
                     shouldUseHeadlineHeader={!selectionModeHeader}
