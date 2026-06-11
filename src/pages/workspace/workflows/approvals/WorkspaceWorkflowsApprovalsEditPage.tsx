@@ -24,6 +24,7 @@ import AccessOrNotFoundWrapper from '@pages/workspace/AccessOrNotFoundWrapper';
 import withPolicyAndFullscreenLoading from '@pages/workspace/withPolicyAndFullscreenLoading';
 import type {WithPolicyAndFullscreenLoadingProps} from '@pages/workspace/withPolicyAndFullscreenLoading';
 import {
+    buildDeferredAgentWorkflowSaveKey,
     clearApprovalWorkflow,
     queueDeferredAgentWorkflowSave,
     removeApprovalWorkflow,
@@ -52,6 +53,7 @@ function WorkspaceWorkflowsApprovalsEditPage({policy, isLoadingReportData = true
     const isLoadingApprovalWorkflow = isLoadingOnyxValue(approvalWorkflowMetadata);
     const [agentPrompts] = useOnyx(ONYXKEYS.COLLECTION.SHARED_NVP_AGENT_PROMPT);
     const [optimisticAgentAccountIDMapping] = useOnyx(ONYXKEYS.OPTIMISTIC_AGENT_ACCOUNT_ID_MAPPING);
+    const [deferredAgentWorkflowSaves] = useOnyx(ONYXKEYS.DEFERRED_AGENT_WORKFLOW_SAVES);
     const currentUserPersonalDetails = useCurrentUserPersonalDetails();
     const [initialApprovalWorkflow, setInitialApprovalWorkflow] = useState<ApprovalWorkflow | undefined>();
     const formRef = useRef<ScrollView>(null);
@@ -141,10 +143,36 @@ function WorkspaceWorkflowsApprovalsEditPage({policy, isLoadingReportData = true
             currentUserLogin: currentUserPersonalDetails?.login,
         });
 
+        const convertedWorkflow = result.approvalWorkflows.find((workflow) => workflow.approvers.at(0)?.email === firstApprover);
+
+        // While a freshly-added agent's CREATE_AGENT is still pending, the save is stashed in
+        // DEFERRED_AGENT_WORKFLOW_SAVES rather than written to employeeList (the agent has no
+        // real email yet), so the converted workflow above still resolves to the previous
+        // approver. WorkspaceWorkflowsPage overlays that stash onto the card via
+        // useDeferredAgentWorkflowReconciliation; mirror the same approver overlay here so the
+        // editor shows the pending agent (faded, surfacing any ADD_AGENT error) instead of the
+        // stale approver. Once the watcher reconciles and clears the entry, the converted
+        // workflow naturally takes over.
+        const deferredEntry = convertedWorkflow && firstApprover ? deferredAgentWorkflowSaves?.[buildDeferredAgentWorkflowSaveKey(route.params.policyID, firstApprover)] : undefined;
+        const addAgentErrors = policy.errorFields?.[CONST.POLICY.COLLECTION_KEYS.ADD_AGENT];
+        const currentApprovalWorkflow =
+            convertedWorkflow && deferredEntry
+                ? {
+                      ...convertedWorkflow,
+                      approvers: deferredEntry.approvalWorkflow.approvers
+                          .filter((approver): approver is Approver => !!approver)
+                          .map((approver) =>
+                              addAgentErrors && approver.accountID === deferredEntry.pendingAgentAccountID && approver.pendingAction === CONST.RED_BRICK_ROAD_PENDING_ACTION.ADD
+                                  ? {...approver, errors: addAgentErrors}
+                                  : approver,
+                          ),
+                  }
+                : convertedWorkflow;
+
         return {
             defaultWorkflowMembers: result.availableMembers,
             usedApproverEmails: result.usedApproverEmails,
-            currentApprovalWorkflow: result.approvalWorkflows.find((workflow) => workflow.approvers.at(0)?.email === firstApprover),
+            currentApprovalWorkflow,
         };
     };
 
