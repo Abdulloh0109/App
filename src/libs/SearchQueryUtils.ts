@@ -530,7 +530,9 @@ function getQueryHashes(query: SearchQueryJSON) {
 
     orderedQuery += ` ${CONST.SEARCH.SYNTAX_ROOT_KEYS.SORT_BY}:${query.sortBy}`;
     orderedQuery += ` ${CONST.SEARCH.SYNTAX_ROOT_KEYS.SORT_ORDER}:${query.sortOrder}`;
-    orderedQuery += ` ${CONST.SEARCH.SYNTAX_ROOT_KEYS.COLUMNS}:${Array.isArray(query.columns) ? query.columns.join(',') : query.columns}`;
+    // Columns are a display-only concern resolved client-side from the search form (see `visibleColumns`/`getColumnsToShow`),
+    // so they must not be part of the snapshot/primary hash. Folding them in mints a brand-new snapshot key on every column
+    // toggle, which can never be populated while offline and blanks the page with the offline blocking view (issue #93417).
 
     if (query.limit !== undefined) {
         orderedQuery += ` ${CONST.SEARCH.SYNTAX_ROOT_KEYS.LIMIT}:${query.limit}`;
