@@ -1874,6 +1874,53 @@ describe('actions/IOU/ReportWorkflow', () => {
         });
     });
 
+    describe('retractReport hold reconciliation', () => {
+        beforeEach(async () => {
+            jest.clearAllMocks();
+            // eslint-disable-next-line rulesdir/no-multiple-api-calls -- Inspecting API.write optimistic data in this test.
+            jest.spyOn(API, 'write');
+            await waitForBatchedUpdates();
+        });
+
+        it('releases the approver hold on held transactions so the retracted report stays submittable', async () => {
+            const chatReport: Report = {
+                ...createRandomReport(0, CONST.REPORT.CHAT_TYPE.POLICY_EXPENSE_CHAT),
+            };
+            const expenseReport: Report = {
+                ...createRandomReport(1, undefined),
+                type: CONST.REPORT.TYPE.EXPENSE,
+                total: 10000,
+                currency: CONST.CURRENCY.USD,
+                stateNum: CONST.REPORT.STATE_NUM.SUBMITTED,
+                statusNum: CONST.REPORT.STATUS_NUM.SUBMITTED,
+            };
+            const holdReportActionID = '987654321';
+            const heldTransaction: Transaction = {
+                ...createRandomTransaction(2),
+                reportID: expenseReport.reportID,
+                comment: {hold: holdReportActionID},
+            };
+            await Onyx.set(`${ONYXKEYS.COLLECTION.TRANSACTION}${heldTransaction.transactionID}`, heldTransaction);
+            await waitForBatchedUpdates();
+
+            retractReport(expenseReport, chatReport, createRandomPolicy(3), RORY_ACCOUNT_ID, RORY_EMAIL, false, false, undefined, undefined);
+
+            // eslint-disable-next-line rulesdir/no-multiple-api-calls -- Inspecting mock call args to verify optimistic data structure
+            const onyxData = jest.mocked(API.write).mock.calls.at(0)?.[2];
+            const optimisticData = onyxData?.optimisticData ?? [];
+            const failureData = onyxData?.failureData ?? [];
+            const transactionKey = `${ONYXKEYS.COLLECTION.TRANSACTION}${heldTransaction.transactionID}`;
+
+            // Optimistically the hold is released, so the report is no longer fully held and can be submitted.
+            const optimisticTransactionUpdate = optimisticData.find((update) => update.key === transactionKey);
+            expect(optimisticTransactionUpdate?.value).toMatchObject({comment: {hold: null}});
+
+            // If the retract fails, the original hold is restored.
+            const failureTransactionUpdate = failureData.find((update) => update.key === transactionKey);
+            expect(failureTransactionUpdate?.value).toMatchObject({comment: {hold: holdReportActionID}});
+        });
+    });
+
     describe('delegateAccountID forwarding', () => {
         const DELEGATE_EMAIL = 'delegate@example.com';
         const DELEGATE_ACCOUNT_ID = 99;
