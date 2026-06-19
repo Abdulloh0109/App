@@ -1022,11 +1022,9 @@ function retractReport(
         value: optimisticNextStepDeprecated,
     };
 
-    const optimisticData: Array<OnyxUpdate<typeof ONYXKEYS.COLLECTION.REPORT | typeof ONYXKEYS.COLLECTION.REPORT_ACTIONS | typeof ONYXKEYS.COLLECTION.NEXT_STEP>> = [
-        optimisticIOUReportData,
-        optimisticReportActionsData,
-        optimisticNextStepData,
-    ];
+    const optimisticData: Array<
+        OnyxUpdate<typeof ONYXKEYS.COLLECTION.REPORT | typeof ONYXKEYS.COLLECTION.REPORT_ACTIONS | typeof ONYXKEYS.COLLECTION.NEXT_STEP | typeof ONYXKEYS.COLLECTION.TRANSACTION>
+    > = [optimisticIOUReportData, optimisticReportActionsData, optimisticNextStepData];
 
     if (chatReport) {
         optimisticData.push({
@@ -1039,7 +1037,7 @@ function retractReport(
         });
     }
 
-    const successData: Array<OnyxUpdate<typeof ONYXKEYS.COLLECTION.REPORT_ACTIONS | typeof ONYXKEYS.COLLECTION.REPORT>> = [
+    const successData: Array<OnyxUpdate<typeof ONYXKEYS.COLLECTION.REPORT_ACTIONS | typeof ONYXKEYS.COLLECTION.REPORT | typeof ONYXKEYS.COLLECTION.TRANSACTION>> = [
         {
             onyxMethod: Onyx.METHOD.MERGE,
             key: `${ONYXKEYS.COLLECTION.REPORT_ACTIONS}${expenseReport.reportID}`,
@@ -1061,7 +1059,9 @@ function retractReport(
         },
     ];
 
-    const failureData: Array<OnyxUpdate<typeof ONYXKEYS.COLLECTION.REPORT_ACTIONS | typeof ONYXKEYS.COLLECTION.REPORT | typeof ONYXKEYS.COLLECTION.NEXT_STEP>> = [
+    const failureData: Array<
+        OnyxUpdate<typeof ONYXKEYS.COLLECTION.REPORT_ACTIONS | typeof ONYXKEYS.COLLECTION.REPORT | typeof ONYXKEYS.COLLECTION.NEXT_STEP | typeof ONYXKEYS.COLLECTION.TRANSACTION>
+    > = [
         {
             onyxMethod: Onyx.METHOD.MERGE,
             key: `${ONYXKEYS.COLLECTION.REPORT_ACTIONS}${expenseReport.reportID}`,
@@ -1113,6 +1113,30 @@ function retractReport(
                     childStatusNum: expenseReport.statusNum,
                 },
             },
+        });
+    }
+
+    // A hold the approver placed during the previous approval cycle is no longer meaningful once the
+    // submitter retracts the report back to Draft. A report whose expenses are all held also can't be
+    // submitted (see getReportPrimaryAction's `!allExpensesHeld` gate), so leaving the hold in place makes
+    // the follow-up SubmitReport fail. Release the hold on every held transaction so the retracted report
+    // stays submittable. The backend RetractReport mirrors this (and clears the HOLD violation) server-side.
+    const heldTransactions = getAllHeldTransactionsReportUtils(expenseReport.reportID);
+    for (const heldTransaction of heldTransactions) {
+        optimisticData.push({
+            onyxMethod: Onyx.METHOD.MERGE,
+            key: `${ONYXKEYS.COLLECTION.TRANSACTION}${heldTransaction.transactionID}`,
+            value: {pendingAction: CONST.RED_BRICK_ROAD_PENDING_ACTION.UPDATE, comment: {hold: null}},
+        });
+        successData.push({
+            onyxMethod: Onyx.METHOD.MERGE,
+            key: `${ONYXKEYS.COLLECTION.TRANSACTION}${heldTransaction.transactionID}`,
+            value: {pendingAction: null},
+        });
+        failureData.push({
+            onyxMethod: Onyx.METHOD.MERGE,
+            key: `${ONYXKEYS.COLLECTION.TRANSACTION}${heldTransaction.transactionID}`,
+            value: {pendingAction: null, comment: {hold: heldTransaction.comment?.hold ?? null}},
         });
     }
 
