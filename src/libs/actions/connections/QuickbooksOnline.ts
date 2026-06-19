@@ -467,6 +467,20 @@ function updateQuickbooksOnlineSyncTax<TSettingValue extends Connections['quickb
     API.write(WRITE_COMMANDS.UPDATE_QUICKBOOKS_ONLINE_SYNC_TAX, parameters, onyxData);
 }
 
+function updateQuickbooksOnlineSyncItems<TSettingValue extends Connections['quickbooksOnline']['config']['syncItems']>(policyID: string | undefined, settingValue: TSettingValue) {
+    if (!policyID) {
+        return;
+    }
+    const onyxData = buildOnyxDataForQuickbooksConfiguration(policyID, CONST.QUICKBOOKS_CONFIG.SYNC_ITEMS, settingValue, !settingValue);
+
+    const parameters: UpdateQuickbooksOnlineGenericTypeParams = {
+        policyID,
+        settingValue: JSON.stringify(settingValue),
+        idempotencyKey: String(CONST.QUICKBOOKS_CONFIG.SYNC_ITEMS),
+    };
+    API.write(WRITE_COMMANDS.UPDATE_QUICKBOOKS_ONLINE_SYNC_ITEMS, parameters, onyxData);
+}
+
 function updateQuickbooksOnlineReimbursementAccountID<TSettingValue extends Connections['quickbooksOnline']['config']['reimbursementAccountID']>(
     policyID: string,
     settingValue: TSettingValue,
@@ -531,6 +545,7 @@ export {
     updateQuickbooksOnlineNonReimbursableBillDefaultVendor,
     updateQuickbooksOnlineNonReimbursableCreditCardDefaultVendor,
     updateQuickbooksOnlineSyncTax,
+    updateQuickbooksOnlineSyncItems,
     updateQuickbooksOnlineSyncClasses,
     updateQuickbooksOnlineSyncLocations,
     updateQuickbooksOnlineSyncCustomers,

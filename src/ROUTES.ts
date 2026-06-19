@@ -3587,6 +3587,10 @@ const ROUTES = {
         route: 'workspaces/:policyID/accounting/quickbooks-online/import/taxes',
         getRoute: (policyID: string) => `workspaces/${policyID}/accounting/quickbooks-online/import/taxes` as const,
     },
+    POLICY_ACCOUNTING_QUICKBOOKS_ONLINE_ITEMS: {
+        route: 'workspaces/:policyID/accounting/quickbooks-online/import/items',
+        getRoute: (policyID: string) => `workspaces/${policyID}/accounting/quickbooks-online/import/items` as const,
+    },
     RESTRICTED_ACTION: {
         route: 'restricted-action/workspace/:policyID',
         getRoute: (policyID: string) => `restricted-action/workspace/${policyID}` as const,

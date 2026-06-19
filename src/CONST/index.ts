@@ -2913,6 +2913,7 @@ const CONST = {
         SYNC_CUSTOMERS: 'syncCustomers',
         SYNC_LOCATIONS: 'syncLocations',
         SYNC_TAX: 'syncTax',
+        SYNC_ITEMS: 'syncItems',
         EXPORT: 'export',
         EXPORTER: 'exporter',
         EXPORT_DATE: 'exportDate',

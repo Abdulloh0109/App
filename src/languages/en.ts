@@ -4792,11 +4792,13 @@ const translations = {
             classes: 'Classes',
             locations: 'Locations',
             customers: 'Customers/projects',
+            items: 'Items',
             accountsDescription: 'Your QuickBooks Online chart of accounts will import into Expensify as categories.',
             accountsSwitchTitle: 'Choose to import new accounts as enabled or disabled categories.',
             accountsSwitchDescription: 'Enabled categories will be available for members to select when creating their expenses.',
             classesDescription: 'Choose how to handle QuickBooks Online classes in Expensify.',
             customersDescription: 'Choose how to handle QuickBooks Online customers/projects in Expensify.',
+            itemsDescription: 'Choose how to handle QuickBooks Online items in Expensify.',
             locationsDescription: 'Choose how to handle QuickBooks Online locations in Expensify.',
             taxesDescription: 'Choose how to handle QuickBooks Online taxes in Expensify.',
             locationsLineItemsRestrictionDescription:
