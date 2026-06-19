@@ -11,6 +11,7 @@ import HeaderWithBackButton from '@components/HeaderWithBackButton';
 import {ModalActions} from '@components/Modal/Global/ModalContext';
 import ScreenWrapper from '@components/ScreenWrapper';
 import ScrollView from '@components/ScrollView';
+import type {SingleSelectItem} from '@components/Search/FilterComponents/SingleSelect';
 import DropdownButton from '@components/Search/FilterDropdowns/DropdownButton';
 import type {PopoverComponentProps} from '@components/Search/FilterDropdowns/FilterPopupButton';
 import SingleSelectPopup from '@components/Search/FilterDropdowns/SingleSelectPopup';
@@ -83,6 +84,17 @@ function DomainMembersPage({route}: DomainMembersPageProps) {
 
     const {groupPreFilter, groupOptions, selectedGroup, handleGroupChange, dropdownLabel, groups} = useDomainGroupFilter(domainAccountID);
 
+    // Selection lives independently of the group filter, so clear it whenever the filter changes.
+    // Otherwise members picked under the previous group keep the selection-mode header active even
+    // though they are no longer visible in the list.
+    const handleGroupFilterChange = (item: SingleSelectItem<string> | undefined) => {
+        clearSelectedMembers();
+        if (isMobileSelectionModeEnabled) {
+            turnOffMobileSelectionMode();
+        }
+        handleGroupChange(item);
+    };
+
     const membersFeatureListItems: FeatureListItem[] = [
         {
             icon: illustrations.BuildingCross,
@@ -104,7 +116,7 @@ function DomainMembersPage({route}: DomainMembersPageProps) {
             items={groupOptions}
             value={selectedGroup ?? groupOptions.at(0)}
             closeOverlay={closeOverlay}
-            onChange={handleGroupChange}
+            onChange={handleGroupFilterChange}
             defaultValue={groupOptions.at(0)?.value}
             itemHeight={variables.optionRowHeightCompact}
             shouldShowList={isExpanded}
