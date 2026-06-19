@@ -23,7 +23,7 @@ import usePolicy from '@hooks/usePolicy';
 import useThemeStyles from '@hooks/useThemeStyles';
 import {updateExpensifyCardLimitType} from '@libs/actions/Card';
 import {openPolicyEditCardLimitTypePage} from '@libs/actions/Policy/Policy';
-import {filterInactiveCardsForWorkspace, getDefaultExpensifyCardLimitType} from '@libs/CardUtils';
+import {filterInactiveCardsForWorkspace, getDefaultExpensifyCardLimitType, isSmartLimitEnabled} from '@libs/CardUtils';
 import DateUtils from '@libs/DateUtils';
 import type {PlatformStackScreenProps} from '@libs/Navigation/PlatformStackNavigation/types';
 import {getApprovalWorkflow} from '@libs/PolicyUtils';
@@ -141,7 +141,7 @@ function DynamicExpensifyCardLimitTypePage({route}: WorkspaceEditCardLimitTypePa
 
     const data = [];
 
-    if (areApprovalsConfigured) {
+    if (areApprovalsConfigured || initialLimitType === CONST.EXPENSIFY_CARD.LIMIT_TYPES.SMART || isSmartLimitEnabled(cardsList ?? {})) {
         data.push({
             value: CONST.EXPENSIFY_CARD.LIMIT_TYPES.SMART,
             label: translate('workspace.card.issueNewCard.smartLimit'),

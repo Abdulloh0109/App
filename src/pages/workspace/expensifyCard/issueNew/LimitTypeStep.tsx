@@ -8,11 +8,12 @@ import type {FormInputErrors, FormOnyxValues, FormRef} from '@components/Form/ty
 import InteractiveStepWrapper from '@components/InteractiveStepWrapper';
 import Text from '@components/Text';
 import ValuePicker from '@components/ValuePicker';
+import useDefaultFundID from '@hooks/useDefaultFundID';
 import useLocalize from '@hooks/useLocalize';
 import useOnyx from '@hooks/useOnyx';
 import useThemeStyles from '@hooks/useThemeStyles';
 import {setIssueNewCardStepAndData} from '@libs/actions/Card';
-import {getDefaultExpensifyCardLimitType} from '@libs/CardUtils';
+import {filterInactiveCardsForWorkspace, getDefaultExpensifyCardLimitType, isSmartLimitEnabled} from '@libs/CardUtils';
 import {convertToBackendAmount, convertToFrontendAmountAsString} from '@libs/CurrencyUtils';
 import {getApprovalWorkflow, isPolicyFeatureEnabled} from '@libs/PolicyUtils';
 import {getFieldRequiredErrors} from '@libs/ValidationUtils';
@@ -41,8 +42,10 @@ function LimitTypeStep({policy, stepNames, startStepIndex}: LimitTypeStepProps) 
     const policyID = policy?.id;
     const formRef = useRef<FormRef | null>(null);
     const [issueNewCard] = useOnyx(`${ONYXKEYS.COLLECTION.RAM_ONLY_ISSUE_NEW_EXPENSIFY_CARD}${policyID}`);
+    const defaultFundID = useDefaultFundID(policyID);
+    const [cardsList] = useOnyx(`${ONYXKEYS.COLLECTION.WORKSPACE_CARDS_LIST}${defaultFundID}_${CONST.EXPENSIFY_CARD.BANK}`, {selector: filterInactiveCardsForWorkspace});
 
-    const areApprovalsConfigured = getApprovalWorkflow(policy) !== CONST.POLICY.APPROVAL_MODE.OPTIONAL;
+    const isSmartLimitAvailable = getApprovalWorkflow(policy) !== CONST.POLICY.APPROVAL_MODE.OPTIONAL || isSmartLimitEnabled(cardsList ?? {});
     const defaultType = getDefaultExpensifyCardLimitType(policy);
 
     const [typeSelected, setTypeSelected] = useState(issueNewCard?.data?.limitType ?? defaultType);
@@ -90,7 +93,7 @@ function LimitTypeStep({policy, stepNames, startStepIndex}: LimitTypeStepProps) 
     const data = useMemo(() => {
         const options = [];
 
-        if (areApprovalsConfigured) {
+        if (isSmartLimitAvailable) {
             options.push({
                 value: CONST.EXPENSIFY_CARD.LIMIT_TYPES.SMART,
                 label: translate('workspace.card.issueNewCard.smartLimit'),
@@ -127,7 +130,7 @@ function LimitTypeStep({policy, stepNames, startStepIndex}: LimitTypeStepProps) 
             });
         }
         return options;
-    }, [areApprovalsConfigured, issueNewCard?.data?.cardType, translate, typeSelected]);
+    }, [isSmartLimitAvailable, issueNewCard?.data?.cardType, translate, typeSelected]);
 
     const validate = useCallback(
         (values: FormOnyxValues<typeof ONYXKEYS.FORMS.ISSUE_NEW_EXPENSIFY_CARD_FORM>): FormInputErrors<typeof ONYXKEYS.FORMS.ISSUE_NEW_EXPENSIFY_CARD_FORM> => {
