@@ -344,7 +344,10 @@ describe('createWorkspaceListPoliciesSelector', () => {
         expect(item?.nonMemberDetails).toBeUndefined();
     });
 
-    it('populates nonMemberDetails from the first policyDetailsForNonMembers entry when join request is pending', () => {
+    // Regression (#94550): the owner of a workspace you only have a pending join request to is a non-member,
+    // so their profile is never in PERSONAL_DETAILS_LIST. ownerEmail is the only owner identity carried on
+    // policyDetailsForNonMembers, so the selector must project it for the row to render owner details at all.
+    it('populates nonMemberDetails (including ownerEmail) from the first policyDetailsForNonMembers entry when join request is pending', () => {
         const policy = {
             isJoinRequestPending: true,
             policyDetailsForNonMembers: {
@@ -352,6 +355,7 @@ describe('createWorkspaceListPoliciesSelector', () => {
                     name: 'External WS',
                     type: CONST.POLICY.TYPE.CORPORATE,
                     ownerAccountID: 99,
+                    ownerEmail: 'owner@external.com',
                     avatar: 'https://img/ext.png',
                 },
             },
@@ -364,6 +368,7 @@ describe('createWorkspaceListPoliciesSelector', () => {
             name: 'External WS',
             type: CONST.POLICY.TYPE.CORPORATE,
             ownerAccountID: 99,
+            ownerEmail: 'owner@external.com',
             avatar: 'https://img/ext.png',
         });
     });
