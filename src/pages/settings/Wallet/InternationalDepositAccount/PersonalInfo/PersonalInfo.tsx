@@ -6,6 +6,7 @@ import useSubStep from '@hooks/useSubStep';
 import type {SubStepProps} from '@hooks/useSubStep/types';
 import {getLatestErrorMessage} from '@libs/ErrorUtils';
 import {formatE164PhoneNumber} from '@libs/LoginUtils';
+import {getCurrentAddress, getStreetLines} from '@libs/PersonalDetailsUtils';
 import Navigation from '@navigation/Navigation';
 import {addPersonalBankAccount} from '@userActions/BankAccounts';
 import CONST from '@src/CONST';
@@ -50,11 +51,23 @@ function PersonalInfoPage() {
                   plaidAccessToken: plaidData?.plaidAccessToken ?? '',
               };
         const finalPhoneNumber = personalBankAccount?.phoneNumber ?? privatePersonalDetails?.phoneNumber ?? '';
+        // `privatePersonalDetails` keeps the address nested in `addresses[]`, not as flat `addressStreet/City/State/ZipCode`
+        // keys, so spreading it doesn't supply an address. When the Address substep is skipped (the profile already has a
+        // complete address), the form draft has no address either, so we'd create the account without one - which then
+        // surfaces a "Review" badge. Fall back to the current profile address; draft values still win when edited in-flow.
+        const currentAddress = getCurrentAddress(privatePersonalDetails);
+        const [profileStreet1, profileStreet2] = getStreetLines(currentAddress?.street);
         const accountData = {
             ...privatePersonalDetails,
             ...personalBankAccount,
             ...bankAccountWithToken,
             phoneNumber: formatE164PhoneNumber(finalPhoneNumber, countryCode),
+            addressStreet: personalBankAccount?.addressStreet ?? profileStreet1,
+            addressStreet2: personalBankAccount?.addressStreet2 ?? currentAddress?.street2 ?? profileStreet2,
+            addressCity: personalBankAccount?.addressCity ?? currentAddress?.city,
+            addressState: personalBankAccount?.addressState ?? currentAddress?.state,
+            addressZipCode: personalBankAccount?.addressZipCode ?? currentAddress?.zip,
+            country: personalBankAccount?.country ?? currentAddress?.country,
         };
         if (confirmedOwnershipDetails.current) {
             accountData.confirmedOwnershipDetails = true;
