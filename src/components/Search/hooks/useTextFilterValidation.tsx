@@ -16,7 +16,9 @@ const FILTER_MAX_LENGTH: Partial<Record<SearchTextFilterKeys, number>> = {
 
 function useTextFilterValidation(filterKey: SearchTextFilterKeys, value: string | undefined, onError?: (error: string | undefined) => void) {
     const {translate} = useLocalize();
-    const maxLength = FILTER_MAX_LENGTH[filterKey] ?? CONST.MAX_COMMENT_LENGTH;
+    // Fall back to SEARCH_QUERY_LIMIT, not MAX_COMMENT_LENGTH: 15000 exceeds both the whole-query cap and the
+    // native input limit, so the error was never reachable for keyword/reportID/withdrawal/report-field filters.
+    const maxLength = FILTER_MAX_LENGTH[filterKey] ?? CONST.SEARCH_QUERY_LIMIT;
     const {isValid, byteLength} = isValidInputLength(value?.trim() ?? '', maxLength);
     const error = !isValid ? translate('common.error.characterLimitExceedCounter', byteLength, maxLength) : undefined;
 

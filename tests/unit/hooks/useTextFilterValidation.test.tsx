@@ -65,11 +65,11 @@ describe('useTextFilterValidation', () => {
         expect(result.current).toBe(expectedError(length, CONST.TASK_TITLE_CHARACTER_LIMIT));
     });
 
-    it('falls back to MAX_COMMENT_LENGTH for filters without a specific limit', () => {
-        const length = CONST.MAX_COMMENT_LENGTH + 1;
+    it('falls back to SEARCH_QUERY_LIMIT for filters without a specific limit', () => {
+        const length = CONST.SEARCH_QUERY_LIMIT + 1;
         const value = 'x'.repeat(length);
         const {result} = renderValidationHook(CONST.SEARCH.SYNTAX_FILTER_KEYS.KEYWORD, value);
-        expect(result.current).toBe(expectedError(length, CONST.MAX_COMMENT_LENGTH));
+        expect(result.current).toBe(expectedError(length, CONST.SEARCH_QUERY_LIMIT));
     });
 
     it('trims the value before measuring its length', () => {
