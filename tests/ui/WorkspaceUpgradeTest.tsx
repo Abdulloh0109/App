@@ -143,6 +143,35 @@ describe('WorkspaceUpgrade', () => {
         await waitForBatchedUpdates();
     });
 
+    it('should upgrade a Submit workspace with UpgradeSubmit even when the Submit 2026 beta is off', async () => {
+        const policy: Policy = {...LHNTestUtils.getFakePolicy(), type: CONST.POLICY.TYPE.SUBMIT};
+
+        // Given a Submit workspace and no Submit 2026 beta
+        await act(async () => {
+            await Onyx.set(ONYXKEYS.BETAS, []);
+            await Onyx.merge(`${ONYXKEYS.COLLECTION.POLICY}${policy.id}`, policy);
+        });
+
+        // And the upgrade page is opened with Control requested explicitly, the way the member import gate does
+        const {unmount} = renderPage(SCREENS.WORKSPACE.UPGRADE, {
+            policyID: policy.id,
+            featureName: CONST.UPGRADE_FEATURE_INTRO_MAPPING.controlPolicyRoles.alias,
+            upgradePlanType: CONST.POLICY.TYPE.CORPORATE,
+        });
+
+        // When the workspace is upgraded by clicking on the Upgrade button
+        fireEvent.press(screen.getByTestId('upgrade-button'));
+        await waitForBatchedUpdatesWithAct();
+
+        // Then the plan the caller asked for still reaches UpgradeSubmit, and the Collect -> Control
+        // command is not used, since it cannot upgrade a Submit workspace
+        TestHelper.expectAPICommandToHaveBeenCalledWith(WRITE_COMMANDS.UPGRADE_SUBMIT, 0, {policyID: policy.id, targetType: CONST.POLICY.TYPE.CORPORATE});
+        TestHelper.expectAPICommandToHaveBeenCalled(WRITE_COMMANDS.UPGRADE_TO_CORPORATE, 0);
+
+        unmount();
+        await waitForBatchedUpdates();
+    });
+
     it('should upgrade a Submit workspace to Collect when unlocking a Collect-tier feature', async () => {
         const policy: Policy = {...LHNTestUtils.getFakePolicy(), type: CONST.POLICY.TYPE.SUBMIT};
 
