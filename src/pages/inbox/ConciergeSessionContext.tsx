@@ -17,6 +17,7 @@ type ConciergeSessionStateContextType = {
 
 type ConciergeSessionActionsContextType = {
     startSession: (unreadBoundary?: string | null) => void;
+    restartSession: (notBeforeDBTime?: string) => void;
     setShowFullHistory: (show: boolean) => void;
     setHadMessagesAtSessionStart: (value: boolean) => void;
 };
@@ -29,6 +30,7 @@ const ConciergeSessionStateContext = createContext<ConciergeSessionStateContextT
 
 const ConciergeSessionActionsContext = createContext<ConciergeSessionActionsContextType>({
     startSession: () => {},
+    restartSession: () => {},
     setShowFullHistory: () => {},
     setHadMessagesAtSessionStart: () => {},
 });
@@ -59,6 +61,11 @@ function ConciergeSessionProvider({children}: PropsWithChildren) {
     // lastReadTime boundary doesn't cause premature expiration.
     const sessionCreatedAtRef = useRef<number | null>(null);
 
+    // Set when the session was started explicitly (the user asked Concierge a question) rather than by
+    // opening the report. Such a boundary must not be refined backwards by the unread pull-back below,
+    // which exists only for auto-started sessions that locked to `now` before the anchor resolved.
+    const isExplicitSessionRef = useRef(false);
+
     // Reset the session when the user switches accounts. The provider is
     // mounted at the app level and never remounts, so without this the
     // previous user's session state would leak into the new account.
@@ -84,8 +91,10 @@ function ConciergeSessionProvider({children}: PropsWithChildren) {
                     // cold open the session can lock to `now` before the unread anchor resolves;
                     // when it arrives we pull sessionStartTime back so the notification message
                     // isn't hidden behind "Show full history". The session age (sessionCreatedAtRef)
-                    // is unchanged — only the display boundary is refined.
-                    if (unreadBoundary && unreadBoundary < prev) {
+                    // is unchanged — only the display boundary is refined. An explicitly started session
+                    // is exempt: its boundary is the moment the user asked, so pulling it back into the
+                    // previous conversation is exactly what we're avoiding.
+                    if (!isExplicitSessionRef.current && unreadBoundary && unreadBoundary < prev) {
                         return unreadBoundary;
                     }
                     return prev;
@@ -93,6 +102,7 @@ function ConciergeSessionProvider({children}: PropsWithChildren) {
                 sessionExpired = true;
             }
             sessionCreatedAtRef.current = Date.now();
+            isExplicitSessionRef.current = false;
             const now = getServerAnchoredDBTime();
             if (unreadBoundary && unreadBoundary < now) {
                 return unreadBoundary;
@@ -105,8 +115,26 @@ function ConciergeSessionProvider({children}: PropsWithChildren) {
         }
     }, []);
 
+    /**
+     * Starts a fresh session at `now` even while the current one is still active, and marks it explicit so the
+     * unread pull-back in startSession can't drag the new boundary back into the previous conversation. Used when
+     * the user explicitly asks Concierge a question from search, which on native lands in the main DM — the
+     * counterpart of re-anchoring the boundary on every side panel open on web.
+     *
+     * notBeforeDBTime clamps the boundary after the report's newest action (the same floor addComment stamps the
+     * question with), so existing history sorts strictly before the boundary and the question at or after it,
+     * regardless of how accurate the skew estimate is.
+     */
+    const restartSession = useCallback((notBeforeDBTime?: string) => {
+        isExplicitSessionRef.current = true;
+        sessionCreatedAtRef.current = Date.now();
+        setSessionStartTime(getServerAnchoredDBTime('', notBeforeDBTime));
+        setShowFullHistory(false);
+        setHadMessagesAtSessionStart(false);
+    }, []);
+
     const stateValue = useMemo(() => ({sessionStartTime, showFullHistory, hadMessagesAtSessionStart}), [sessionStartTime, showFullHistory, hadMessagesAtSessionStart]);
-    const actionsValue = useMemo(() => ({startSession, setShowFullHistory, setHadMessagesAtSessionStart}), [startSession]);
+    const actionsValue = useMemo(() => ({startSession, restartSession, setShowFullHistory, setHadMessagesAtSessionStart}), [restartSession, startSession]);
 
     return (
         <ConciergeSessionStateContext.Provider value={stateValue}>
