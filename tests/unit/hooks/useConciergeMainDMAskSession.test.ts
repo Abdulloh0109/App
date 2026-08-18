@@ -203,3 +203,81 @@ describe('Concierge main DM session boundary on an explicit ask', () => {
         expect(result.current.showFullHistory).toBe(true);
     });
 });
+
+describe('Concierge main DM outstanding child task visibility', () => {
+    beforeAll(() => {
+        Onyx.init({keys: ONYXKEYS});
+    });
+
+    beforeEach(async () => {
+        await Onyx.clear();
+        await waitForBatchedUpdates();
+    });
+
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
+    it('keeps an OPEN pre-session child task visible while the rest of read history hides behind "Show history"', async () => {
+        // Given a restarted (correct) session boundary and an OPEN task that predates it
+        const session = await renderSession();
+        act(() => session.result.current.startSession());
+        const boundary = session.result.current.sessionStartTime ?? '';
+        const {createdAction, welcome, priorQuestion, priorReply} = buildRecordedHistory(boundary);
+        const openTask = buildAction('14', {
+            created: addMs(priorReply.created, 5_000),
+            childType: CONST.REPORT.TYPE.TASK,
+            childStateNum: CONST.REPORT.STATE_NUM.OPEN,
+            childStatusNum: CONST.REPORT.STATUS_NUM.OPEN,
+        });
+        act(() => session.result.current.restartSession(openTask.created));
+        const askBoundary = session.result.current.sessionStartTime ?? '';
+        const question = buildAction('20', {created: getServerAnchoredDBTime('', openTask.created)});
+
+        // When the actions are filtered without forcing full history (hasOutstandingChildTask no longer does that)
+        const {result} = renderMainDM({
+            sessionStartTime: askBoundary,
+            reportActions: [createdAction, welcome, priorQuestion, priorReply, openTask, question],
+            showFullHistory: false,
+        });
+        const visibleIDs = result.current.filteredReportActions.map((action) => action.reportActionID);
+
+        // Then the task stays reachable without a click even though it predates the boundary, the rest of the read
+        // history hides behind "Show history", and the button renders.
+        expect(visibleIDs).toContain('14');
+        expect(visibleIDs).toContain('20');
+        expect(visibleIDs).not.toContain('11');
+        expect(visibleIDs).not.toContain('12');
+        expect(visibleIDs).not.toContain('13');
+        expect(result.current.hasPreviousMessages).toBe(true);
+    });
+
+    it('does not pin a COMPLETED task or a non-task thread — only an OPEN task is exempt', async () => {
+        const session = await renderSession();
+        act(() => session.result.current.startSession());
+        const boundary = session.result.current.sessionStartTime ?? '';
+        const {createdAction, welcome, priorQuestion, priorReply} = buildRecordedHistory(boundary);
+        const completedTask = buildAction('14', {
+            created: addMs(priorReply.created, 5_000),
+            childType: CONST.REPORT.TYPE.TASK,
+            childStateNum: CONST.REPORT.STATE_NUM.APPROVED,
+            childStatusNum: CONST.REPORT.STATUS_NUM.APPROVED,
+        });
+        const openThread = buildAction('15', {created: addMs(priorReply.created, 6_000), childType: CONST.REPORT.TYPE.CHAT});
+        act(() => session.result.current.restartSession(openThread.created));
+        const askBoundary = session.result.current.sessionStartTime ?? '';
+        const question = buildAction('20', {created: getServerAnchoredDBTime('', openThread.created)});
+
+        const {result} = renderMainDM({
+            sessionStartTime: askBoundary,
+            reportActions: [createdAction, welcome, priorQuestion, priorReply, completedTask, openThread, question],
+            showFullHistory: false,
+        });
+        const visibleIDs = result.current.filteredReportActions.map((action) => action.reportActionID);
+
+        // Neither is force-shown: only a still-OPEN task is exempt from the session boundary.
+        expect(visibleIDs).not.toContain('14');
+        expect(visibleIDs).not.toContain('15');
+        expect(visibleIDs).toContain('20');
+    });
+});

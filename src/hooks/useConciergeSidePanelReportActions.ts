@@ -2,6 +2,7 @@ import DateUtils from '@libs/DateUtils';
 import {isCreatedAction, isCurrentUserPendingAddAction} from '@libs/ReportActionsUtils';
 import {buildConciergeGreetingReportAction} from '@libs/ReportUtils';
 
+import CONST from '@src/CONST';
 import type * as OnyxTypes from '@src/types/onyx';
 
 import type {OnyxEntry} from 'react-native-onyx';
@@ -144,7 +145,13 @@ function useConciergeSidePanelReportActions({
                 return false;
             }
             if (isConciergeMainDM) {
-                return isCreatedAction(action) || isCurrentUserPendingAddAction(action, currentUserAccountID) || action.created >= sessionStartTime;
+                // An OPEN child task (e.g. an onboarding task) stays visible even when it predates the session, so
+                // hiding read history behind "Show history" never hides a pending task the user still needs to act
+                // on — the LHN's "action required" badge already points at it, and it would otherwise be reachable
+                // only by tapping "Show history" first.
+                const isOpenChildTask =
+                    action.childType === CONST.REPORT.TYPE.TASK && action.childStateNum === CONST.REPORT.STATE_NUM.OPEN && action.childStatusNum === CONST.REPORT.STATUS_NUM.OPEN;
+                return isCreatedAction(action) || isCurrentUserPendingAddAction(action, currentUserAccountID) || isOpenChildTask || action.created >= sessionStartTime;
             }
             if (!firstUserMessageCreated) {
                 return false;
