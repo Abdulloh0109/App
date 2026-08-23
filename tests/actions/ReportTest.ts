@@ -6817,6 +6817,70 @@ describe('actions/Report', () => {
             expect(new Date(pendingResponse?.reportAction.created ?? 0).getTime()).toBeGreaterThan(new Date(userCommentAction?.created ?? 0).getTime());
         });
 
+        it('should stamp a message sent inside the pre-generated response window after the reserved Concierge timestamp', async () => {
+            const reportAction = createMock<OnyxTypes.ReportAction>({
+                reportActionID: REPORT_ACTION_ID,
+                actorAccountID: CONST.ACCOUNT_ID.CONCIERGE,
+                message: [
+                    {
+                        html: '<p>Here is help</p><followup-list><followup><followup-text>How do I set up QuickBooks?</followup-text><followup-response>To set up QuickBooks, go to Settings...</followup-response></followup></followup-list>',
+                        text: 'Here is help',
+                        type: CONST.REPORT.MESSAGE.TYPE.COMMENT,
+                    },
+                ],
+            });
+
+            await Onyx.merge(`${ONYXKEYS.COLLECTION.REPORT}${REPORT_ID}`, report);
+            await Onyx.merge(`${ONYXKEYS.COLLECTION.REPORT_ACTIONS}${REPORT_ID}`, {
+                [REPORT_ACTION_ID]: reportAction,
+            });
+            await waitForBatchedUpdates();
+
+            // Given a followup carrying a pre-generated response was clicked in the Concierge chat
+            resolveSuggestedFollowup(
+                report,
+                undefined,
+                reportAction,
+                {text: 'How do I set up QuickBooks?', response: 'To set up QuickBooks, go to Settings...'},
+                CONST.DEFAULT_TIME_ZONE,
+                TEST_USER_ACCOUNT_ID,
+                TEST_USER_EMAIL,
+                undefined,
+                REPORT_ID,
+            );
+            await waitForBatchedUpdates();
+
+            // Then the Concierge reply reserved a `created` slot ahead of the report's last visible action
+            const pendingResponse = await getOnyxValue(`${ONYXKEYS.COLLECTION.PENDING_CONCIERGE_RESPONSE}${REPORT_ID}` as const);
+            const reservedCreated = pendingResponse?.reportAction.created;
+            expect(reservedCreated).toBeDefined();
+            const reportAfterFollowup = await getOnyxValue(`${ONYXKEYS.COLLECTION.REPORT}${REPORT_ID}` as const);
+            expect(new Date(reportAfterFollowup?.lastVisibleActionCreated ?? 0).getTime()).toBeLessThan(new Date(reservedCreated ?? 0).getTime());
+
+            // When the user sends another message inside that window
+            apiWriteSpy.mockClear();
+            Report.addComment({
+                report: reportAfterFollowup,
+                notifyReportID: REPORT_ID,
+                ancestors: [],
+                text: 'Actually, what about Xero?',
+                timezoneParam: CONST.DEFAULT_TIME_ZONE,
+                currentUserAccountID: TEST_USER_ACCOUNT_ID,
+                delegateAccountID: undefined,
+                conciergeReportID: REPORT_ID,
+            });
+            await waitForBatchedUpdates();
+
+            // Then it is stamped after the reserved reply, so it stays the newest action for Concierge to answer
+            const reportActions = await getOnyxValue(`${ONYXKEYS.COLLECTION.REPORT_ACTIONS}${REPORT_ID}` as const);
+            const newestAction = Object.values(reportActions ?? {}).reduce((a, b) => ((a?.created ?? '') > (b?.created ?? '') ? a : b));
+            expect(newestAction?.actorAccountID).not.toBe(CONST.ACCOUNT_ID.CONCIERGE);
+            expect(new Date(newestAction?.created ?? 0).getTime()).toBeGreaterThan(new Date(reservedCreated ?? 0).getTime());
+
+            // And the same timestamp is what the server is told, so the reply it already claimed can't outrank the message
+            expect(apiWriteSpy).toHaveBeenCalledWith(WRITE_COMMANDS.ADD_COMMENT, expect.objectContaining({clientCreatedTime: newestAction?.created}), expect.anything());
+        });
+
         it('should emit Log.info followup_clicked telemetry when a suggested followup is resolved', async () => {
             const logInfoSpy = jest.spyOn(Log, 'info');
             const reportAction = createMock<OnyxTypes.ReportAction>({

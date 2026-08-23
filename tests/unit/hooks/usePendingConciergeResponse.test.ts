@@ -41,6 +41,16 @@ const fakeLongConciergeAction = createMock<ReportAction>({
     message: [{html: LONG_HTML, text: LONG_HTML.replaceAll(/<[^>]+>/g, ''), type: CONST.REPORT.MESSAGE.TYPE.COMMENT}],
 });
 
+/** A message the user sends after this turn's Concierge reply — it opens its own Concierge turn. */
+const NEWER_USER_ACTION_ID = '200';
+const fakeNewerUserAction = createMock<ReportAction>({
+    reportActionID: NEWER_USER_ACTION_ID,
+    actorAccountID: 12345,
+    actionName: CONST.REPORT.ACTIONS.TYPE.ADD_COMMENT,
+    created: '2026-08-23 10:00:02.000',
+    message: [{html: 'Actually, what about Xero?', text: 'Actually, what about Xero?', type: CONST.REPORT.MESSAGE.TYPE.COMMENT}],
+});
+
 /** Wait for a given number of ms (real timer) */
 function delay(ms: number): Promise<void> {
     return new Promise((resolve) => {
@@ -403,6 +413,92 @@ describe('usePendingConciergeResponse', () => {
     });
 
     describe('followup-list reconciliation', () => {
+        it("keeps the server's processing indicator when a newer user message has already started its own Concierge turn", async () => {
+            // Given this turn's reply is the pending followup action, and the user sent a message after it
+            await Onyx.set(`${ONYXKEYS.COLLECTION.CONCIERGE_PENDING_FOLLOWUP_LIST}${REPORT_ID}`, {
+                reportActionID: REPORT_ACTION_ID,
+                createdAt: Date.now(),
+            });
+            await Onyx.merge(`${ONYXKEYS.COLLECTION.REPORT_ACTIONS}${REPORT_ID}`, {
+                [REPORT_ACTION_ID]: {...fakeConciergeAction, created: '2026-08-23 10:00:00.000'},
+                [NEWER_USER_ACTION_ID]: fakeNewerUserAction,
+            });
+            // And the server has set the processing indicator for that newer turn
+            await Onyx.merge(`${ONYXKEYS.COLLECTION.REPORT_NAME_VALUE_PAIRS}${REPORT_ID}`, {
+                agentZeroProcessingRequestIndicator: {[CONST.ACCOUNT_ID.CONCIERGE]: 'Looking into it...'},
+            });
+            await waitForBatchedUpdates();
+
+            const {unmount} = renderHook(() => usePendingConciergeResponse(REPORT_ID));
+            await waitForBatchedUpdates();
+
+            // When the canonical reply lands with a real followup-list, completing this turn
+            await Onyx.merge(`${ONYXKEYS.COLLECTION.REPORT_ACTIONS}${REPORT_ID}`, {
+                [REPORT_ACTION_ID]: {
+                    ...fakeConciergeAction,
+                    created: '2026-08-23 10:00:00.000',
+                    message: [
+                        {
+                            html: '<p>Pick one:</p><followup-list><followup><followup-text>Yes</followup-text></followup></followup-list>',
+                            text: 'Pick one:',
+                            type: CONST.REPORT.MESSAGE.TYPE.COMMENT,
+                        },
+                    ],
+                } as ReportAction,
+            });
+            await waitForBatchedUpdates();
+
+            // Then the skeleton clears, but the indicator the newer turn is using survives
+            const flagAfter = await getOnyxValue(`${ONYXKEYS.COLLECTION.CONCIERGE_PENDING_FOLLOWUP_LIST}${REPORT_ID}` as const);
+            expect(flagAfter).toBeUndefined();
+            const nvpAfter = await getOnyxValue(`${ONYXKEYS.COLLECTION.REPORT_NAME_VALUE_PAIRS}${REPORT_ID}` as const);
+            const indicatorAfter = nvpAfter?.agentZeroProcessingRequestIndicator;
+            expect(isObject(indicatorAfter) ? indicatorAfter[CONST.ACCOUNT_ID.CONCIERGE] : undefined).toBe('Looking into it...');
+
+            unmount();
+        });
+
+        it('still clears a stale processing indicator when no newer user message exists', async () => {
+            // Given this turn's reply is the newest action in the report
+            await Onyx.set(`${ONYXKEYS.COLLECTION.CONCIERGE_PENDING_FOLLOWUP_LIST}${REPORT_ID}`, {
+                reportActionID: REPORT_ACTION_ID,
+                createdAt: Date.now(),
+            });
+            await Onyx.merge(`${ONYXKEYS.COLLECTION.REPORT_ACTIONS}${REPORT_ID}`, {
+                [REPORT_ACTION_ID]: {...fakeConciergeAction, created: '2026-08-23 10:00:00.000'},
+            });
+            await Onyx.merge(`${ONYXKEYS.COLLECTION.REPORT_NAME_VALUE_PAIRS}${REPORT_ID}`, {
+                agentZeroProcessingRequestIndicator: {[CONST.ACCOUNT_ID.CONCIERGE]: 'Looking into it...'},
+            });
+            await waitForBatchedUpdates();
+
+            const {unmount} = renderHook(() => usePendingConciergeResponse(REPORT_ID));
+            await waitForBatchedUpdates();
+
+            // When the canonical reply lands with a real followup-list
+            await Onyx.merge(`${ONYXKEYS.COLLECTION.REPORT_ACTIONS}${REPORT_ID}`, {
+                [REPORT_ACTION_ID]: {
+                    ...fakeConciergeAction,
+                    created: '2026-08-23 10:00:00.000',
+                    message: [
+                        {
+                            html: '<p>Pick one:</p><followup-list><followup><followup-text>Yes</followup-text></followup></followup-list>',
+                            text: 'Pick one:',
+                            type: CONST.REPORT.MESSAGE.TYPE.COMMENT,
+                        },
+                    ],
+                } as ReportAction,
+            });
+            await waitForBatchedUpdates();
+
+            // Then the defensive clear still runs, so a missed server clear can't leave a stuck label
+            const nvpAfter = await getOnyxValue(`${ONYXKEYS.COLLECTION.REPORT_NAME_VALUE_PAIRS}${REPORT_ID}` as const);
+            const indicatorAfter = nvpAfter?.agentZeroProcessingRequestIndicator;
+            expect(isObject(indicatorAfter) ? indicatorAfter[CONST.ACCOUNT_ID.CONCIERGE] : undefined).toBeFalsy();
+
+            unmount();
+        });
+
         it('clears the followup-list pending flag once the canonical action HTML carries a real <followup-list>', async () => {
             // Given the skeleton flag is set (post-trickle / post-binary-reveal state) and the
             // optimistic action exists in REPORT_ACTIONS with no <followup-list> yet

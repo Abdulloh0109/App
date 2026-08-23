@@ -232,6 +232,7 @@ import type {
     OnboardingPurpose,
     OnboardingRHPVariant,
     Pages,
+    PendingConciergeResponse,
     PersonalDetailsList,
     Policy,
     PolicyCategories,
@@ -575,6 +576,31 @@ Onyx.connect({
     },
 });
 
+// We use connectWithoutView because the pending response doesn't affect the UI rendering here, it's only read to
+// find the `created` slot a pre-generated Concierge reply has already reserved (see getSendOrderingFloor).
+let allPendingConciergeResponses: OnyxCollection<PendingConciergeResponse> = {};
+Onyx.connectWithoutView({
+    key: ONYXKEYS.COLLECTION.PENDING_CONCIERGE_RESPONSE,
+    callback: (value) => (allPendingConciergeResponses = value),
+});
+
+/**
+ * The `created` a new comment must sort after. Normally that's the report's last visible action, but a pre-generated
+ * Concierge reply reserves a `created` a few seconds ahead (see resolveSuggestedFollowup) and that exact value is sent
+ * to the server as `optimisticConciergeCreated`. Until the reply is revealed the reservation lives only in
+ * PENDING_CONCIERGE_RESPONSE — `lastVisibleActionCreated` still points at the user's question — so a message sent
+ * inside that window would be stamped before a reply that has already been claimed, both locally and in
+ * `clientCreatedTime`, and would no longer be the newest action for Concierge to answer.
+ */
+function getSendOrderingFloor(reportID: string, lastVisibleActionCreated: string | undefined): string | undefined {
+    const reservedConciergeCreated = allPendingConciergeResponses?.[`${ONYXKEYS.COLLECTION.PENDING_CONCIERGE_RESPONSE}${reportID}`]?.reportAction?.created;
+    if (!reservedConciergeCreated) {
+        return lastVisibleActionCreated;
+    }
+    // Both are DB-format timestamps, so a lexicographic comparison is chronological.
+    return !lastVisibleActionCreated || reservedConciergeCreated > lastVisibleActionCreated ? reservedConciergeCreated : lastVisibleActionCreated;
+}
+
 // We use connectWithoutView because `allAttachments` doesn't affect the UI rendering, it's only used to retrieve attachment local source when deleting a comment
 let allAttachments: OnyxCollection<Attachment> = {};
 Onyx.connectWithoutView({
@@ -897,9 +923,9 @@ function addActions({
     const reportForAction = reportID === sourceReportID ? report : (allReports?.[`${ONYXKEYS.COLLECTION.REPORT}${reportID}`] ?? report);
 
     // Anchor the Concierge question's `created` to the server clock so skew can't hide it from the session view,
-    // clamped after the last action so successive sends stay monotonic.
+    // clamped after the last action (or a reserved pre-generated reply) so successive sends stay monotonic.
     const isConciergeChat = isConciergeChatReport(reportForAction, conciergeReportID);
-    const lastActionCreated = reportForAction?.lastVisibleActionCreated;
+    const lastActionCreated = getSendOrderingFloor(reportID, reportForAction?.lastVisibleActionCreated);
 
     let resolvedNotifyReportID: AddActionsParams['notifyReportID'];
     if (typeof notifyReportID === 'string') {

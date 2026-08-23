@@ -1,6 +1,6 @@
 import {clearAgentZeroProcessingIndicator} from '@libs/actions/Report';
 import {applyPendingConciergeAction, clearPendingFollowupList, discardPendingConciergeAction, hidePendingFollowupList} from '@libs/actions/Report/SuggestedFollowup';
-import AgentZeroOptimisticStore, {MAX_AGE_MS} from '@libs/AgentZeroOptimisticStore';
+import {MAX_AGE_MS} from '@libs/AgentZeroOptimisticStore';
 import {ACCELERATED_REMAINING_MS, getOptimisticRevealDurationMS, MIN_TRICKLE_TOKEN_COUNT, TICK_INTERVAL_MS, TRICKLE_HARD_CAP_MS} from '@libs/ConciergeRevealUtils';
 import Log from '@libs/Log';
 import {rand64} from '@libs/NumberUtils';
@@ -43,6 +43,19 @@ function usePendingConciergeResponse(reportID: string | undefined) {
     const pendingFollowupActionSelector = (actions: OnyxEntry<ReportActions>): ReportAction | undefined =>
         pendingFollowupActionID && actions ? actions[pendingFollowupActionID] : undefined;
     const [pendingFollowupAction] = useOnyx(`${ONYXKEYS.COLLECTION.REPORT_ACTIONS}${reportID}`, {selector: pendingFollowupActionSelector});
+    // A message sent after this turn's reply opens a new Concierge turn, and the server sets the processing
+    // indicator for that turn. Completing *this* turn's skeleton must not wipe it, so detect the newer message
+    // from the actions themselves.
+    const hasNewerUserCommentSelector = (actions: OnyxEntry<ReportActions>): boolean => {
+        const followupActionCreated = pendingFollowupActionID ? actions?.[pendingFollowupActionID]?.created : undefined;
+        if (!followupActionCreated) {
+            return false;
+        }
+        return Object.values(actions ?? {}).some(
+            (action) => action?.actionName === CONST.REPORT.ACTIONS.TYPE.ADD_COMMENT && action.actorAccountID !== CONST.ACCOUNT_ID.CONCIERGE && action.created > followupActionCreated,
+        );
+    };
+    const [hasNewerUserComment = false] = useOnyx(`${ONYXKEYS.COLLECTION.REPORT_ACTIONS}${reportID}`, {selector: hasNewerUserCommentSelector});
     const {dispatchLocalDraftEvent} = useConciergeDraftActions();
 
     const tokens = tokenizeForReveal(fullHtml);
@@ -97,10 +110,8 @@ function usePendingConciergeResponse(reportID: string | undefined) {
         const html = pendingFollowupAction ? getReportActionHtml(pendingFollowupAction) : '';
         const hardClearIndicator = () => {
             // Follow-up lists are a Concierge feature, so this clears Concierge's indicator slot.
-            // Skip clearing when a newer Concierge request has kicked off.
-            const optimisticEntry = AgentZeroOptimisticStore.getEntry(reportID, CONST.ACCOUNT_ID.CONCIERGE);
-            const hasNewerRequest = !!optimisticEntry && optimisticEntry.startedAt > pendingFollowupList.createdAt;
-            if (!hasNewerRequest) {
+            // Skip clearing when a newer user message has already kicked off its own Concierge turn.
+            if (!hasNewerUserComment) {
                 clearAgentZeroProcessingIndicator(reportID, CONST.ACCOUNT_ID.CONCIERGE);
             }
             clearPendingFollowupList(reportID);
@@ -120,7 +131,7 @@ function usePendingConciergeResponse(reportID: string | undefined) {
         }
         const ttlTimer = setTimeout(hardClearIndicator, remainingTTL);
         return () => clearTimeout(ttlTimer);
-    }, [reportID, pendingFollowupList, pendingFollowupAction, isOffline]);
+    }, [reportID, pendingFollowupList, pendingFollowupAction, isOffline, hasNewerUserComment]);
 
     useEffect(() => {
         if (!reportID || !reportActionID) {
