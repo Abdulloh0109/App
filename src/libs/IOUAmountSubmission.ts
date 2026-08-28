@@ -32,6 +32,7 @@ import {requestMoney, trackExpense} from './actions/IOU/TrackExpense';
 import {updateMoneyRequestAmountAndCurrency} from './actions/IOU/UpdateMoneyRequest';
 import {setTransactionReport} from './actions/Transaction';
 import {convertToBackendAmount} from './CurrencyUtils';
+import getNonEmptyStringOnyxID from './getNonEmptyStringOnyxID';
 import {
     calculateDefaultReimbursable,
     getExistingTransactionID,
@@ -531,7 +532,9 @@ function submitGlobalCreate(args: SubmitAmountArgs, ctx: SubmitAmountContext): v
     const transactionAssociatedReport = getReportOrReportDraftForAmount(transaction?.reportID, allReports, allReportDrafts);
     const selectedReport = iouReportID === CONST.REPORT.UNREPORTED_REPORT_ID ? selfDMReport : transactionAssociatedReport;
     const navigationIOUType = isSelfDM(selectedReport) ? CONST.IOU.TYPE.TRACK : CONST.IOU.TYPE.SUBMIT;
-    const chatReportID = selectedReport?.chatReportID ?? selectedReport?.reportID;
+    // `chatReportID` is only meaningful on a money request report, and it can arrive as an empty string.
+    // An empty route segment does not match the confirmation route and resolves to /not-found.
+    const chatReportID = getNonEmptyStringOnyxID(isMoneyRequestReport(selectedReport) ? selectedReport?.chatReportID : undefined) ?? selectedReport?.reportID;
 
     navigateToExistingParticipantConfirmation(navigationIOUType, transactionID, chatReportID);
 }
