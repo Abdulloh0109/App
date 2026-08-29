@@ -1,4 +1,5 @@
 import {getIsP2PForAmount, submitAmount} from '@libs/IOUAmountSubmission';
+import Navigation from '@libs/Navigation/Navigation';
 
 import {setMoneyRequestTaxAmount, setMoneyRequestTaxRate} from '@userActions/IOU/MoneyRequest';
 
@@ -102,6 +103,7 @@ describe('AmountSubmission', () => {
     });
 
     beforeEach(async () => {
+        jest.clearAllMocks();
         await Onyx.clear();
         await waitForBatchedUpdates();
     });
@@ -601,6 +603,84 @@ describe('AmountSubmission', () => {
                     currency: CONST.CURRENCY.USD,
                 }),
             );
+        });
+
+        describe('returning from the confirmation page with an empty chatReportID', () => {
+            const defaultExpensePolicy: OnyxEntry<Policy> = {
+                id: 'policy-1',
+                type: CONST.POLICY.TYPE.TEAM,
+                role: CONST.POLICY.ROLE.ADMIN,
+                name: 'Test Workspace',
+                owner: 'me@test.com',
+                outputCurrency: CONST.CURRENCY.USD,
+                isPolicyExpenseChatEnabled: true,
+                autoReporting: true,
+            } as Policy;
+
+            const workspaceChat = (chatReportID?: string): Report => ({
+                ...createRandomReport(300, undefined),
+                reportID: 'report-300',
+                chatType: CONST.REPORT.CHAT_TYPE.POLICY_EXPENSE_CHAT,
+                policyID: 'policy-1',
+                isOwnPolicyExpenseChat: true,
+                ownerAccountID: CURRENT_USER_ACCOUNT_ID,
+                chatReportID,
+            });
+
+            // A transaction that already has participants takes the "returning from confirmation" branch.
+            const returningTransaction = (reportID: string) =>
+                ({
+                    transactionID: 'tx-1',
+                    amount: 0,
+                    currency: CONST.CURRENCY.USD,
+                    created: '2024-01-01',
+                    merchant: '',
+                    reportID,
+                    comment: {},
+                    participants: [{isPolicyExpenseChat: true, policyID: 'policy-1', reportID: 'report-300'}],
+                }) as unknown as Transaction;
+
+            it('navigates to the workspace chat when the chat carries an empty chatReportID', () => {
+                submitAmount(
+                    buildBaseArgs({
+                        iouType: CONST.IOU.TYPE.CREATE,
+                        report: undefined,
+                        transaction: returningTransaction('report-300'),
+                        defaultExpensePolicy,
+                        allReports: {[`${ONYXKEYS.COLLECTION.REPORT}report-300`]: workspaceChat('')},
+                        amount: '100',
+                    }),
+                );
+
+                expect(Navigation.navigate).toHaveBeenCalledWith('create/submit/confirmation/tx-1/report-300');
+            });
+
+            it('navigates to the selected expense report when that report carries an empty chatReportID', () => {
+                const expenseReport: Report = {
+                    ...createRandomReport(400, undefined),
+                    reportID: 'report-400',
+                    type: CONST.REPORT.TYPE.EXPENSE,
+                    policyID: 'policy-1',
+                    ownerAccountID: CURRENT_USER_ACCOUNT_ID,
+                    chatReportID: '',
+                };
+
+                submitAmount(
+                    buildBaseArgs({
+                        iouType: CONST.IOU.TYPE.CREATE,
+                        report: undefined,
+                        transaction: returningTransaction('report-400'),
+                        defaultExpensePolicy,
+                        allReports: {
+                            [`${ONYXKEYS.COLLECTION.REPORT}report-300`]: workspaceChat(),
+                            [`${ONYXKEYS.COLLECTION.REPORT}report-400`]: expenseReport,
+                        },
+                        amount: '100',
+                    }),
+                );
+
+                expect(Navigation.navigate).toHaveBeenCalledWith('create/submit/confirmation/tx-1/report-400');
+            });
         });
     });
 });
