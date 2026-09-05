@@ -338,7 +338,9 @@ function findNextApproverInChain(policy: OnyxEntry<Policy>, selectedMemberEmails
     let current = employeeList[policy?.approver ?? '']?.forwardsTo;
 
     while (current && !visited.has(current)) {
-        if (!selectedMemberEmails.includes(current)) {
+        // A `forwardsTo` link can point at an email that is not (or is about to stop being) an employee.
+        // Returning one would leave `policy.approver` pointing outside `employeeList`.
+        if (!selectedMemberEmails.includes(current) && !!employeeList[current]) {
             return current;
         }
         visited.add(current);
@@ -427,7 +429,9 @@ function removeMembers(policy: OnyxEntry<Policy>, selectedMemberEmails: string[]
             key: policyKey,
             value: {
                 employeeList: optimisticMembersState,
-                approver: selectedMemberEmails.includes(policy?.approver ?? '') ? findNextApproverInChain(policy, selectedMemberEmailsWithDuplicates) : policy?.approver,
+                // Test the expanded list: a paired primary/secondary login is deleted below even when it was
+                // not the login the admin clicked, and leaving `approver` on it orphans the default approver.
+                approver: selectedMemberEmailsWithDuplicates.includes(policy?.approver ?? '') ? findNextApproverInChain(policy, selectedMemberEmailsWithDuplicates) : policy?.approver,
                 rules: {
                     ...(policy?.rules ?? {}),
                     approvalRules: optimisticApprovalRules,

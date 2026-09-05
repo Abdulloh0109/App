@@ -249,6 +249,10 @@ function convertPolicyEmployeesToApprovalWorkflows({policy, personalDetails, fir
             // should not affect the workflow's display state
             const workflowPendingAction = pendingAction !== CONST.RED_BRICK_ROAD_PENDING_ACTION.DELETE ? pendingAction : undefined;
 
+            // The Expensify-team filter above can empty a chain that the fallback had just filled.
+            if (approvers.length === 0) {
+                continue;
+            }
             approvalWorkflows[effectiveSubmitsTo] = {
                 members: [],
                 approvers,
@@ -284,11 +288,17 @@ function convertPolicyEmployeesToApprovalWorkflows({policy, personalDetails, fir
     // Add a default workflow if one doesn't exist (no employees submit to the default approver)
     const firstWorkflow = sortedApprovalWorkflows.at(0);
     if (firstWorkflow && !firstWorkflow.isDefault) {
-        sortedApprovalWorkflows.unshift({
-            members: [],
-            approvers: calculateApprovers({employees, firstEmail: defaultApprover, personalDetailsByEmail}),
-            isDefault: true,
-        });
+        // `defaultApprover` can be an HR connection's final approver or a stale `policy.approver`, neither of
+        // which is guaranteed to be an employee. `calculateApprovers` returns [] for those, and a workflow
+        // with no approvers cannot be rendered or saved.
+        const defaultWorkflowApprovers = calculateApprovers({employees, firstEmail: defaultApprover, personalDetailsByEmail});
+        if (defaultWorkflowApprovers.length > 0) {
+            sortedApprovalWorkflows.unshift({
+                members: [],
+                approvers: defaultWorkflowApprovers,
+                isDefault: true,
+            });
+        }
     }
 
     // availableMembers built in loop above: all employees with email, excluding pending delete.
@@ -1704,11 +1714,17 @@ function convertApprovalWorkflowRulesToWorkflows({
 
     const firstWorkflow = sortedApprovalWorkflows.at(0);
     if (firstWorkflow && !firstWorkflow.isDefault) {
-        sortedApprovalWorkflows.unshift({
-            members: [],
-            approvers: calculateApprovers({employees, firstEmail: defaultApprover, personalDetailsByEmail}),
-            isDefault: true,
-        });
+        // `defaultApprover` can be an HR connection's final approver or a stale `policy.approver`, neither of
+        // which is guaranteed to be an employee. `calculateApprovers` returns [] for those, and a workflow
+        // with no approvers cannot be rendered or saved.
+        const defaultWorkflowApprovers = calculateApprovers({employees, firstEmail: defaultApprover, personalDetailsByEmail});
+        if (defaultWorkflowApprovers.length > 0) {
+            sortedApprovalWorkflows.unshift({
+                members: [],
+                approvers: defaultWorkflowApprovers,
+                isDefault: true,
+            });
+        }
     }
 
     availableMembers.sort((a, b) => localeCompare(a.displayName ?? a.email, b.displayName ?? b.email));

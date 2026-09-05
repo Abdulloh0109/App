@@ -350,6 +350,53 @@ describe('WorkflowUtils', () => {
             expect(approvalWorkflows).toEqual([]);
         });
 
+        it('Should not return a workflow whose approver chain is entirely Expensify team', () => {
+            const employees: PolicyEmployeeList = {
+                'owner@example.com': {
+                    email: 'owner@example.com',
+                    forwardsTo: undefined,
+                    submitsTo: 'owner@example.com',
+                },
+                '1@example.com': {
+                    email: '1@example.com',
+                    forwardsTo: undefined,
+                    submitsTo: 'guide@expensify.com',
+                },
+                'guide@expensify.com': {
+                    email: 'guide@expensify.com',
+                    forwardsTo: undefined,
+                    submitsTo: 'owner@example.com',
+                },
+            };
+            const policy = createMockPolicy(employees, 'owner@example.com');
+
+            // The Expensify-team filter is on for a customer workspace viewed by a customer.
+            const {approvalWorkflows} = convertPolicyEmployeesToApprovalWorkflows({policy, personalDetails, localeCompare, currentUserLogin: 'admin@example.com'});
+
+            expect(approvalWorkflows.every((workflow) => workflow.approvers.length > 0)).toBe(true);
+        });
+
+        it('Should not add a default workflow when the default approver is not an employee', () => {
+            const employees: PolicyEmployeeList = {
+                '1@example.com': {
+                    email: '1@example.com',
+                    forwardsTo: undefined,
+                    submitsTo: '2@example.com',
+                },
+                '2@example.com': {
+                    email: '2@example.com',
+                    forwardsTo: undefined,
+                    submitsTo: '2@example.com',
+                },
+            };
+            // A stale `policy.approver`, or an HR connection's final approver, need not be a workspace member.
+            const policy = createMockPolicy(employees, 'not-a-member@example.com');
+
+            const {approvalWorkflows} = convertPolicyEmployeesToApprovalWorkflows({policy, personalDetails, localeCompare});
+
+            expect(approvalWorkflows.every((workflow) => workflow.approvers.length > 0)).toBe(true);
+        });
+
         it('Should transform all users into one default workflow', () => {
             const employees: PolicyEmployeeList = {
                 '1@example.com': {

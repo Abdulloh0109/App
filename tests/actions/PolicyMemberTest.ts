@@ -1128,6 +1128,54 @@ describe('actions/PolicyMember', () => {
             expect(employeeList?.[secondaryEmail]).toBeUndefined();
             expect(employeeList?.[ownerEmail]).toBeDefined();
         });
+
+        it('should not leave policy.approver on a paired login that the removal also deletes', async () => {
+            const policyID = '23457';
+            const ownerEmail = 'owner@gmail.com';
+            const primaryEmail = 'primary@gmail.com';
+            const secondaryEmail = 'secondary@gmail.com';
+            const ownerAccountID = 1;
+            const secondaryAccountID = 4322;
+
+            await Onyx.set(`${ONYXKEYS.PERSONAL_DETAILS_LIST}`, {
+                [ownerAccountID]: {login: ownerEmail},
+                [secondaryAccountID]: {login: secondaryEmail},
+            });
+
+            const policy = {
+                ...createRandomPolicy(Number(policyID)),
+                owner: ownerEmail,
+                // The default approver is the primary login, but the admin removes the paired secondary one.
+                approver: primaryEmail,
+                primaryLoginsInvited: {[secondaryEmail]: primaryEmail},
+                employeeList: {
+                    [ownerEmail]: {role: CONST.POLICY.ROLE.ADMIN},
+                    [primaryEmail]: {role: CONST.POLICY.ROLE.USER},
+                    [secondaryEmail]: {role: CONST.POLICY.ROLE.USER},
+                },
+            };
+
+            await Onyx.set(`${ONYXKEYS.COLLECTION.POLICY}${policyID}`, policy);
+
+            Member.removeMembers(policy, [secondaryEmail], {[secondaryEmail]: secondaryAccountID});
+
+            await waitForBatchedUpdates();
+
+            const updatedPolicy = await new Promise<OnyxEntry<PolicyType>>((resolve) => {
+                const connection = Onyx.connectWithoutView({
+                    key: `${ONYXKEYS.COLLECTION.POLICY}${policyID}`,
+                    callback: (policyResult) => {
+                        Onyx.disconnect(connection);
+                        resolve(policyResult);
+                    },
+                });
+            });
+
+            // Both rows are deleted, so the approver must not be left pointing outside employeeList.
+            expect(updatedPolicy?.employeeList?.[primaryEmail]).toBeUndefined();
+            expect(updatedPolicy?.employeeList?.[secondaryEmail]).toBeUndefined();
+            expect(updatedPolicy?.approver).toBe(ownerEmail);
+        });
     });
 
     describe('importPolicyMembers', () => {
