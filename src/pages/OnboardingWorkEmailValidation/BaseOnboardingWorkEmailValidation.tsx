@@ -1,5 +1,5 @@
-import OnboardingHeader from '@components/OnboardingHeader';
 import OnboardingMergingAccountBlockedView from '@components/OnboardingMergingAccountBlockedView';
+import {OnboardingStickyHeaderSpacer, useOnboardingStickyHeader} from '@components/OnboardingStickyHeader';
 import ScreenWrapper from '@components/ScreenWrapper';
 import Text from '@components/Text';
 import ValidateCodeForm from '@components/ValidateCodeActionModal/ValidateCodeForm';
@@ -80,18 +80,20 @@ function BaseOnboardingWorkEmailValidation({shouldUseNativeStyles}: BaseOnboardi
         MergeIntoAccountAndLogin(workEmail, validateCode, session?.accountID);
     };
 
+    useOnboardingStickyHeader({
+        shouldShowBackButton: !onboardingValues?.isMergingAccountBlocked,
+        onBackButtonPress: () => {
+            updateOnboardingValuesAndNavigation(onboardingValues);
+        },
+    });
+
     return (
         <ScreenWrapper
             includeSafeAreaPaddingBottom
             testID="BaseOnboardingWorkEmailValidation"
             style={[styles.defaultModalContainer, shouldUseNativeStyles && styles.pt8]}
         >
-            <OnboardingHeader
-                shouldShowBackButton={!onboardingValues?.isMergingAccountBlocked}
-                onBackButtonPress={() => {
-                    updateOnboardingValuesAndNavigation(onboardingValues);
-                }}
-            />
+            <OnboardingStickyHeaderSpacer />
             {onboardingValues?.isMergingAccountBlocked ? (
                 <View style={[styles.flex1, onboardingIsMediumOrLargerScreenWidth && styles.mt5, onboardingIsMediumOrLargerScreenWidth ? styles.mh8 : styles.mh5]}>
                     <OnboardingMergingAccountBlockedView

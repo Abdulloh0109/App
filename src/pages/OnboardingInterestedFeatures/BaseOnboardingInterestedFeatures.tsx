@@ -2,7 +2,7 @@ import Button from '@components/Button';
 import Checkbox from '@components/Checkbox';
 import FixedFooter from '@components/FixedFooter';
 import Icon from '@components/Icon';
-import OnboardingHeader from '@components/OnboardingHeader';
+import {OnboardingStickyHeaderSpacer, useOnboardingStickyHeader} from '@components/OnboardingStickyHeader';
 import {PressableWithoutFeedback} from '@components/Pressable';
 import ScreenWrapper from '@components/ScreenWrapper';
 import ScrollView from '@components/ScrollView';
@@ -235,13 +235,15 @@ function BaseOnboardingInterestedFeatures({shouldUseNativeStyles}: BaseOnboardin
         [styles, renderItem, translate],
     );
 
+    useOnboardingStickyHeader({shouldShowBackButton: true, onBackButtonPress: () => Navigation.goBack(ROUTES.ONBOARDING_EMPLOYEES.getRoute())});
+
     return (
         <ScreenWrapper
             testID="BaseOnboardingInterestedFeatures"
             style={[styles.defaultModalContainer, shouldUseNativeStyles && styles.pt8]}
             shouldEnableMaxHeight
         >
-            <OnboardingHeader onBackButtonPress={() => Navigation.goBack(ROUTES.ONBOARDING_EMPLOYEES.getRoute())} />
+            <OnboardingStickyHeaderSpacer />
             <View style={[onboardingIsMediumOrLargerScreenWidth && styles.mt5, onboardingIsMediumOrLargerScreenWidth ? styles.mh8 : styles.mh5]}>
                 <Text
                     style={[styles.textHeadlineH1, styles.mb5]}

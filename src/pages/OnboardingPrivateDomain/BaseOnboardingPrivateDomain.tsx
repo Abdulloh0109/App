@@ -1,4 +1,4 @@
-import OnboardingHeader from '@components/OnboardingHeader';
+import {OnboardingStickyHeaderSpacer, useOnboardingStickyHeader} from '@components/OnboardingStickyHeader';
 import ScreenWrapper from '@components/ScreenWrapper';
 import ScrollView from '@components/ScrollView';
 import Text from '@components/Text';
@@ -118,6 +118,8 @@ function BaseOnboardingPrivateDomain({shouldUseNativeStyles, route}: BaseOnboard
         }
     }, [isValidated, joinablePoliciesLength, getAccessiblePoliciesAction?.loading, shouldBlockPublicDomain, navigateToNextOnboardingStep]);
 
+    useOnboardingStickyHeader({shouldShowBackButton: true, onBackButtonPress: handleBackButtonPress});
+
     if (shouldBlockPublicDomain) {
         return null;
     }
@@ -129,10 +131,7 @@ function BaseOnboardingPrivateDomain({shouldUseNativeStyles, route}: BaseOnboard
             testID="BaseOnboardingPrivateDomain"
             style={[styles.defaultModalContainer, shouldUseNativeStyles && styles.pt8]}
         >
-            <OnboardingHeader
-                shouldShowBackButton
-                onBackButtonPress={handleBackButtonPress}
-            />
+            <OnboardingStickyHeaderSpacer />
             <ScrollView
                 style={[styles.w100, styles.h100, styles.flex1]}
                 contentContainerStyle={styles.flexGrow1}

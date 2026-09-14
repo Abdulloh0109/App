@@ -2025,12 +2025,20 @@ const staticStyles = (theme: ThemeColors) =>
         },
 
         onboardingHeaderContainer: {
-            height: 52,
+            height: variables.onboardingHeaderHeight,
             paddingHorizontal: 20,
             paddingVertical: 16,
-            marginTop: 8,
+            marginTop: variables.onboardingHeaderMarginTop,
             justifyContent: 'center',
             alignItems: 'flex-start',
+        },
+
+        onboardingStickyHeader: {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1,
         },
 
         createMenuContainer: {

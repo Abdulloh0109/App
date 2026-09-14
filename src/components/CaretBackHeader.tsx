@@ -14,17 +14,22 @@ import Icon from './Icon';
 import {PressableWithoutFeedback} from './Pressable';
 import Text from './Text';
 
-type OnboardingHeaderProps = {
+type CaretBackHeaderProps = {
+    /** Called when the back link is pressed */
     onBackButtonPress?: () => void;
 
+    /** Whether to render the back link. The header keeps its height when the link is hidden. */
     shouldShowBackButton?: boolean;
+
+    /** Sentry label for the back link */
+    sentryLabel?: string;
 };
 
 /**
  * Popover-style back link: caret + "Back" label.
- * Matches the submenu back row used by PopoverMenu.
+ * Matches the submenu back row used by PopoverMenu. It is not tied to onboarding and can be used by any modal flow.
  */
-function OnboardingHeader({onBackButtonPress, shouldShowBackButton = true}: OnboardingHeaderProps) {
+function CaretBackHeader({onBackButtonPress, shouldShowBackButton = true, sentryLabel = 'CaretBackHeader-Back'}: CaretBackHeaderProps) {
     const styles = useThemeStyles();
     const {translate} = useLocalize();
     const theme = useTheme();
@@ -38,7 +43,7 @@ function OnboardingHeader({onBackButtonPress, shouldShowBackButton = true}: Onbo
                     style={[styles.flexRow, styles.alignItemsCenter, styles.gap3]}
                     role={CONST.ROLE.BUTTON}
                     accessibilityLabel={translate('common.back')}
-                    sentryLabel="OnboardingHeader-Back"
+                    sentryLabel={sentryLabel}
                 >
                     <Icon
                         src={icons.BackArrow}
@@ -53,4 +58,5 @@ function OnboardingHeader({onBackButtonPress, shouldShowBackButton = true}: Onbo
     );
 }
 
-export default OnboardingHeader;
+export default CaretBackHeader;
+export type {CaretBackHeaderProps};

@@ -1,6 +1,6 @@
 import Button from '@components/Button';
 import FormHelpMessage from '@components/FormHelpMessage';
-import OnboardingHeader from '@components/OnboardingHeader';
+import {OnboardingStickyHeaderSpacer, useOnboardingStickyHeader} from '@components/OnboardingStickyHeader';
 import ScreenWrapper from '@components/ScreenWrapper';
 import SelectionList from '@components/SelectionList';
 import SingleSelectListItem from '@components/SelectionList/ListItem/SingleSelectListItem';
@@ -141,15 +141,14 @@ function BaseOnboardingEmployees({shouldUseNativeStyles, route}: BaseOnboardingE
         </>
     );
 
+    useOnboardingStickyHeader({shouldShowBackButton: !isEmployeesFirstStep, onBackButtonPress: handleBackButtonPress});
+
     return (
         <ScreenWrapper
             testID="BaseOnboardingEmployees"
             style={[styles.defaultModalContainer, shouldUseNativeStyles && styles.pt8]}
         >
-            <OnboardingHeader
-                shouldShowBackButton={!isEmployeesFirstStep}
-                onBackButtonPress={handleBackButtonPress}
-            />
+            <OnboardingStickyHeaderSpacer />
             <Text
                 style={[styles.textHeadlineH1, styles.mb5, onboardingIsMediumOrLargerScreenWidth && styles.mt5, onboardingIsMediumOrLargerScreenWidth ? styles.mh8 : styles.mh5]}
                 accessibilityRole={CONST.ROLE.HEADER}

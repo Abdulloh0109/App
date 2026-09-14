@@ -1,7 +1,7 @@
 import FormHelpMessage from '@components/FormHelpMessage';
 import type {MenuItemProps} from '@components/MenuItem';
 import MenuItemList from '@components/MenuItemList';
-import OnboardingHeader from '@components/OnboardingHeader';
+import {OnboardingStickyHeaderSpacer, useOnboardingStickyHeader} from '@components/OnboardingStickyHeader';
 import ScreenWrapper from '@components/ScreenWrapper';
 import Text from '@components/Text';
 
@@ -173,6 +173,8 @@ function BaseOnboardingPurpose({shouldUseNativeStyles, shouldEnableMaxHeight, ro
     const onboardingLocalRef = useRef<TOnboardingRef>(null);
     useImperativeHandle(isFocused ? OnboardingRefManager.ref : onboardingLocalRef, () => ({handleOuterClick}), [handleOuterClick]);
 
+    useOnboardingStickyHeader({shouldShowBackButton: false});
+
     if (isLoadingOnyxValue(onboardingErrorMessageResult)) {
         return null;
     }
@@ -183,9 +185,7 @@ function BaseOnboardingPurpose({shouldUseNativeStyles, shouldEnableMaxHeight, ro
             style={[styles.defaultModalContainer, shouldUseNativeStyles && styles.pt8]}
             shouldEnableMaxHeight={shouldEnableMaxHeight}
         >
-            <View style={onboardingIsMediumOrLargerScreenWidth && styles.mh3}>
-                <OnboardingHeader shouldShowBackButton={false} />
-            </View>
+            <OnboardingStickyHeaderSpacer />
             <ScrollView style={[styles.flex1, styles.flexGrow1, onboardingIsMediumOrLargerScreenWidth && styles.mt5, paddingHorizontal]}>
                 <View style={styles.flex1}>
                     <View style={[onboardingIsMediumOrLargerScreenWidth ? styles.flexRow : styles.flexColumn, styles.mb5]}>

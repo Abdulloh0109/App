@@ -2,6 +2,7 @@ import {act, fireEvent, render, screen, waitFor} from '@testing-library/react-na
 
 import ComposeProviders from '@components/ComposeProviders';
 import {LocaleContextProvider} from '@components/LocaleContextProvider';
+import {OnboardingStickyHeaderProvider} from '@components/OnboardingStickyHeader';
 import OnyxListItemProvider from '@components/OnyxListItemProvider';
 
 import {CurrentReportIDContextProvider} from '@hooks/useCurrentReportID';
@@ -82,13 +83,15 @@ const renderOnboardingWorkspacesPage = (initialRouteName: typeof SCREENS.ONBOARD
         <ComposeProviders components={[OnyxListItemProvider, LocaleContextProvider, CurrentReportIDContextProvider]}>
             <PortalProvider>
                 <NavigationContainer>
-                    <Stack.Navigator initialRouteName={initialRouteName}>
-                        <Stack.Screen
-                            name={SCREENS.ONBOARDING.WORKSPACES}
-                            component={OnboardingWorkspaces}
-                            initialParams={initialParams}
-                        />
-                    </Stack.Navigator>
+                    <OnboardingStickyHeaderProvider>
+                        <Stack.Navigator initialRouteName={initialRouteName}>
+                            <Stack.Screen
+                                name={SCREENS.ONBOARDING.WORKSPACES}
+                                component={OnboardingWorkspaces}
+                                initialParams={initialParams}
+                            />
+                        </Stack.Navigator>
+                    </OnboardingStickyHeaderProvider>
                 </NavigationContainer>
             </PortalProvider>
         </ComposeProviders>,

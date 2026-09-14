@@ -1,7 +1,8 @@
-import {act, render, screen, waitFor} from '@testing-library/react-native';
+import {act, render, screen, waitFor, within} from '@testing-library/react-native';
 
 import ComposeProviders from '@components/ComposeProviders';
 import {LocaleContextProvider} from '@components/LocaleContextProvider';
+import {OnboardingStickyHeaderProvider} from '@components/OnboardingStickyHeader';
 import OnyxListItemProvider from '@components/OnyxListItemProvider';
 
 import {CurrentReportIDContextProvider} from '@hooks/useCurrentReportID';
@@ -47,13 +48,15 @@ const renderOnboardingEmployeesPage = (initialRouteName: typeof SCREENS.ONBOARDI
         <ComposeProviders components={[OnyxListItemProvider, LocaleContextProvider, CurrentReportIDContextProvider]}>
             <PortalProvider>
                 <NavigationContainer>
-                    <Stack.Navigator initialRouteName={initialRouteName}>
-                        <Stack.Screen
-                            name={SCREENS.ONBOARDING.EMPLOYEES}
-                            component={OnboardingEmployees}
-                            initialParams={initialParams}
-                        />
-                    </Stack.Navigator>
+                    <OnboardingStickyHeaderProvider>
+                        <Stack.Navigator initialRouteName={initialRouteName}>
+                            <Stack.Screen
+                                name={SCREENS.ONBOARDING.EMPLOYEES}
+                                component={OnboardingEmployees}
+                                initialParams={initialParams}
+                            />
+                        </Stack.Navigator>
+                    </OnboardingStickyHeaderProvider>
                 </NavigationContainer>
             </PortalProvider>
         </ComposeProviders>,
@@ -179,6 +182,9 @@ describe('OnboardingEmployees Page', () => {
         await waitFor(() => {
             expect(screen.getByLabelText(TestHelper.translateLocal('common.back'))).toBeOnTheScreen();
         });
+
+        // The caret belongs to the shared sticky header, not to the animated step, so it can't slide with a transition
+        expect(within(screen.getByTestId('BaseOnboardingEmployees')).queryByLabelText(TestHelper.translateLocal('common.back'))).not.toBeOnTheScreen();
 
         unmount();
 

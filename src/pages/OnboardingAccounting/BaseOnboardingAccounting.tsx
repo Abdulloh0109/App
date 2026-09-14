@@ -4,7 +4,7 @@ import CollapsibleHeaderOnKeyboard from '@components/CollapsibleHeaderOnKeyboard
 import FixedFooter from '@components/FixedFooter';
 import FormHelpMessage from '@components/FormHelpMessage';
 import Icon from '@components/Icon';
-import OnboardingHeader from '@components/OnboardingHeader';
+import {OnboardingStickyHeaderSpacer, useOnboardingStickyHeader} from '@components/OnboardingStickyHeader';
 import {PressableWithoutFeedback} from '@components/Pressable';
 import RadioButtonWithLabel from '@components/RadioButtonWithLabel';
 import ScreenWrapper from '@components/ScreenWrapper';
@@ -285,6 +285,8 @@ function BaseOnboardingAccounting({shouldUseNativeStyles}: BaseOnboardingAccount
         </>
     );
 
+    useOnboardingStickyHeader({shouldShowBackButton: true, onBackButtonPress: () => Navigation.goBack(ROUTES.ONBOARDING_INTERESTED_FEATURES.getRoute())});
+
     return (
         <ScreenWrapper
             testID="BaseOnboardingAccounting"
@@ -292,8 +294,8 @@ function BaseOnboardingAccounting({shouldUseNativeStyles}: BaseOnboardingAccount
             shouldEnableMaxHeight={!isMobileSafari()}
             shouldAvoidScrollOnVirtualViewport={!isMobileSafari()}
         >
-            <CollapsibleHeaderOnKeyboard>
-                <OnboardingHeader onBackButtonPress={() => Navigation.goBack(ROUTES.ONBOARDING_INTERESTED_FEATURES.getRoute())} />
+            <OnboardingStickyHeaderSpacer />
+            <CollapsibleHeaderOnKeyboard collapsibleHeaderOffset={variables.onboardingHeaderHeight + variables.onboardingHeaderMarginTop}>
                 <View style={[onboardingIsMediumOrLargerScreenWidth && styles.mt5, onboardingIsMediumOrLargerScreenWidth ? styles.mh8 : styles.mh5]}>
                     <Text
                         style={[styles.textHeadlineH1, styles.mb5]}

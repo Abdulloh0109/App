@@ -2,6 +2,7 @@ import {act, fireEvent, render, screen, waitFor} from '@testing-library/react-na
 
 import ComposeProviders from '@components/ComposeProviders';
 import {LocaleContextProvider} from '@components/LocaleContextProvider';
+import {OnboardingStickyHeaderProvider} from '@components/OnboardingStickyHeader';
 import OnyxListItemProvider from '@components/OnyxListItemProvider';
 import ScreenWrapper from '@components/ScreenWrapper';
 import TextInput from '@components/TextInput';
@@ -57,16 +58,18 @@ function renderInterestedFeaturesPage() {
     return render(
         <ComposeProviders components={[OnyxListItemProvider, LocaleContextProvider, CurrentReportIDContextProvider]}>
             <NavigationContainer>
-                <Stack.Navigator initialRouteName={SCREENS.ONBOARDING.INTERESTED_FEATURES}>
-                    <Stack.Screen name={SCREENS.ONBOARDING.INTERESTED_FEATURES}>
-                        {(props) => (
-                            <BaseOnboardingInterestedFeatures
-                                {...props}
-                                shouldUseNativeStyles={false}
-                            />
-                        )}
-                    </Stack.Screen>
-                </Stack.Navigator>
+                <OnboardingStickyHeaderProvider>
+                    <Stack.Navigator initialRouteName={SCREENS.ONBOARDING.INTERESTED_FEATURES}>
+                        <Stack.Screen name={SCREENS.ONBOARDING.INTERESTED_FEATURES}>
+                            {(props) => (
+                                <BaseOnboardingInterestedFeatures
+                                    {...props}
+                                    shouldUseNativeStyles={false}
+                                />
+                            )}
+                        </Stack.Screen>
+                    </Stack.Navigator>
+                </OnboardingStickyHeaderProvider>
             </NavigationContainer>
         </ComposeProviders>,
     );
@@ -76,16 +79,18 @@ function renderAccountingPage() {
     return render(
         <ComposeProviders components={[OnyxListItemProvider, LocaleContextProvider, CurrentReportIDContextProvider]}>
             <NavigationContainer>
-                <Stack.Navigator initialRouteName={SCREENS.ONBOARDING.ACCOUNTING}>
-                    <Stack.Screen name={SCREENS.ONBOARDING.ACCOUNTING}>
-                        {(props) => (
-                            <BaseOnboardingAccounting
-                                {...props}
-                                shouldUseNativeStyles={false}
-                            />
-                        )}
-                    </Stack.Screen>
-                </Stack.Navigator>
+                <OnboardingStickyHeaderProvider>
+                    <Stack.Navigator initialRouteName={SCREENS.ONBOARDING.ACCOUNTING}>
+                        <Stack.Screen name={SCREENS.ONBOARDING.ACCOUNTING}>
+                            {(props) => (
+                                <BaseOnboardingAccounting
+                                    {...props}
+                                    shouldUseNativeStyles={false}
+                                />
+                            )}
+                        </Stack.Screen>
+                    </Stack.Navigator>
+                </OnboardingStickyHeaderProvider>
             </NavigationContainer>
         </ComposeProviders>,
     );

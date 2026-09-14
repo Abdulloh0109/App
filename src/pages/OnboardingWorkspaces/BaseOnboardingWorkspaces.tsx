@@ -1,7 +1,7 @@
 import Button from '@components/Button';
 import ButtonDisabledWhenOffline from '@components/Button/composed/ButtonDisabledWhenOffline';
 import LinkButton from '@components/Button/composed/LinkButton';
-import OnboardingHeader from '@components/OnboardingHeader';
+import {OnboardingStickyHeaderSpacer, useOnboardingStickyHeader} from '@components/OnboardingStickyHeader';
 import ScreenWrapper from '@components/ScreenWrapper';
 import SelectionList from '@components/SelectionList';
 import BareUserListItem from '@components/SelectionList/ListItem/BareUserListItem';
@@ -166,6 +166,8 @@ function BaseOnboardingWorkspaces({route, shouldUseNativeStyles}: BaseOnboarding
         Navigation.navigate(ROUTES.ONBOARDING_PURPOSE.getRoute(route.params?.backTo));
     };
 
+    useOnboardingStickyHeader({shouldShowBackButton: !shouldHideBackButton, onBackButtonPress: () => Navigation.goBack()});
+
     return (
         <ScreenWrapper
             includeSafeAreaPaddingBottom
@@ -174,10 +176,7 @@ function BaseOnboardingWorkspaces({route, shouldUseNativeStyles}: BaseOnboarding
             style={[styles.defaultModalContainer, shouldUseNativeStyles && styles.pt8]}
             shouldShowOfflineIndicator={isSmallScreenWidth}
         >
-            <OnboardingHeader
-                shouldShowBackButton={!shouldHideBackButton}
-                onBackButtonPress={() => Navigation.goBack()}
-            />
+            <OnboardingStickyHeaderSpacer />
             <SelectionList
                 data={policyIDItems}
                 onSelectRow={() => {}}
