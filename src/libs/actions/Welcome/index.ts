@@ -195,6 +195,10 @@ function setSelfTourViewed(shouldUpdateOnyxDataOnlyLocally = false) {
     API.write(WRITE_COMMANDS.SELF_TOUR_VIEWED, null, {optimisticData});
 }
 
+function setReviewedWorkspaceSettings() {
+    Onyx.merge(ONYXKEYS.NVP_ONBOARDING, {reviewedWorkspaceSettings: true});
+}
+
 function dismissProductTraining(elementName: string, isDismissedUsingCloseButton = false) {
     const date = new Date();
     const dismissedMethod = isDismissedUsingCloseButton ? 'x' : 'click';
@@ -226,6 +230,7 @@ export {
     setOnboardingErrorMessage,
     setOnboardingCompanySize,
     setSelfTourViewed,
+    setReviewedWorkspaceSettings,
     setOnboardingMergeAccountStepValue,
     updateOnboardingValuesAndNavigation,
     setOnboardingUserReportedIntegration,

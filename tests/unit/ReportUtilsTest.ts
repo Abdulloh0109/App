@@ -1486,6 +1486,45 @@ describe('ReportUtils', () => {
             expect(viewTourTask?.completedTaskReportActionID).toBeDefined();
         });
 
+        it.each([
+            {reviewedWorkspaceSettings: true, shouldBeCompleted: true},
+            {reviewedWorkspaceSettings: false, shouldBeCompleted: false},
+        ])(
+            'should auto-complete REVIEW_WORKSPACE_SETTINGS task: $shouldBeCompleted when onboarding.reviewedWorkspaceSettings is $reviewedWorkspaceSettings',
+            async ({reviewedWorkspaceSettings, shouldBeCompleted}) => {
+                await Onyx.merge(ONYXKEYS.NVP_ONBOARDING, {reviewedWorkspaceSettings, hasCompletedGuidedSetupFlow: false});
+                await waitForBatchedUpdates();
+
+                const result = prepareOnboardingOnyxData({
+                    conciergeChat: conciergeChatReport,
+                    introSelected: undefined,
+                    engagementChoice: CONST.ONBOARDING_CHOICES.ADMIN,
+                    onboardingMessage: {
+                        message: 'This is a test',
+                        tasks: [
+                            {
+                                type: CONST.ONBOARDING_TASK_TYPE.REVIEW_WORKSPACE_SETTINGS,
+                                title: () => 'Review your workspace settings',
+                                description: () => 'Review your workspace settings',
+                                autoCompleted: false,
+                            },
+                        ],
+                    },
+                    adminsChatReportID: '1',
+                    companySize: CONST.ONBOARDING_COMPANY_SIZE.SMALL,
+                    delegateAccountID: undefined,
+                    wasInvited: true,
+                });
+
+                const reviewWorkspaceSettingsTask = result?.guidedSetupData.find(
+                    (item): item is Extract<TaskForParameters, {type: 'task'}> =>
+                        item.type === 'task' && 'task' in item && item.task === CONST.ONBOARDING_TASK_TYPE.REVIEW_WORKSPACE_SETTINGS,
+                );
+                expect(reviewWorkspaceSettingsTask).toBeDefined();
+                expect(!!reviewWorkspaceSettingsTask?.completedTaskReportActionID).toBe(shouldBeCompleted);
+            },
+        );
+
         it('should recognize inboxAdminsBespoke as a valid onboarding RHP variant', () => {
             expect(CONST.ONBOARDING_RHP_VARIANT.INBOX_ADMINS_BESPOKE).toBe('inboxAdminsBespoke');
         });

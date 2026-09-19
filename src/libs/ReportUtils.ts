@@ -12574,6 +12574,10 @@ function prepareOnboardingOnyxData({
                 isTaskAutoCompleted = true;
             }
 
+            if (task.type === CONST.ONBOARDING_TASK_TYPE.REVIEW_WORKSPACE_SETTINGS && onboarding?.reviewedWorkspaceSettings) {
+                isTaskAutoCompleted = true;
+            }
+
             if (task.type === CONST.ONBOARDING_TASK_TYPE.INVITE_ACCOUNTANT && isInvitedAccountant) {
                 isTaskAutoCompleted = true;
             }

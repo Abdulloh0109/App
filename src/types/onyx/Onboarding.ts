@@ -16,6 +16,9 @@ type Onboarding = {
     /** A Boolean that tells whether the user has seen Storylane tour  */
     selfTourViewed?: boolean;
 
+    /** A Boolean that tells whether the user changed a workspace setting before the onboarding tasks existed */
+    reviewedWorkspaceSettings?: boolean;
+
     /** A Boolean that tells whether the user should be redirected to OD after merging work email  */
     shouldRedirectToClassicAfterMerge?: boolean;
 

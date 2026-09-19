@@ -1,4 +1,5 @@
 import {getReviewWorkspaceSettingsTaskCompletionData} from '@libs/actions/Task';
+import {setReviewedWorkspaceSettings} from '@libs/actions/Welcome';
 
 import CONST from '@src/CONST';
 
@@ -15,7 +16,14 @@ import useOnboardingTaskInformation from './useOnboardingTaskInformation';
 function useReviewWorkspaceSettingsTaskCompletion() {
     const {accountID} = useCurrentUserPersonalDetails();
     const taskInformation = useOnboardingTaskInformation(CONST.ONBOARDING_TASK_TYPE.REVIEW_WORKSPACE_SETTINGS);
-    return () => getReviewWorkspaceSettingsTaskCompletionData(taskInformation, accountID);
+    return () => {
+        // The task report only exists once Concierge has been opened. Remember the review so guided setup can
+        // create the task already completed instead of dropping the completion on the floor.
+        if (!taskInformation.taskReport) {
+            setReviewedWorkspaceSettings();
+        }
+        return getReviewWorkspaceSettingsTaskCompletionData(taskInformation, accountID);
+    };
 }
 
 export default useReviewWorkspaceSettingsTaskCompletion;
