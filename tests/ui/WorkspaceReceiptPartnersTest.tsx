@@ -9,6 +9,7 @@ import PersonalDetailsByLoginProvider from '@components/PersonalDetailsByLoginPr
 import {CurrentReportIDContextProvider} from '@hooks/useCurrentReportID';
 import * as useResponsiveLayoutModule from '@hooks/useResponsiveLayout';
 import type ResponsiveLayoutResult from '@hooks/useResponsiveLayout/types';
+import * as useSafeAreaInsetsModule from '@hooks/useSafeAreaInsets';
 
 import createPlatformStackNavigator from '@libs/Navigation/PlatformStackNavigation/createPlatformStackNavigator';
 
@@ -23,9 +24,12 @@ import ONYXKEYS from '@src/ONYXKEYS';
 import SCREENS from '@src/SCREENS';
 import type {PersonalDetails} from '@src/types/onyx';
 
+import type {ViewStyle} from 'react-native';
+
 import {PortalProvider} from '@gorhom/portal';
 import {NavigationContainer} from '@react-navigation/native';
 import React from 'react';
+import {StyleSheet} from 'react-native';
 import Onyx from 'react-native-onyx';
 
 import * as LHNTestUtils from '../utils/LHNTestUtils';
@@ -83,6 +87,19 @@ employeePersonalDetails[3] = {
     timezone: CONST.DEFAULT_TIME_ZONE,
     phoneNumber: '',
 };
+
+// iOS scales the bottom inset by `iosSafeAreaInsetsPercentage` (0.7), so a 34pt home indicator becomes 23.8pt of padding
+const BOTTOM_INSET = 34;
+const SAFE_AREA_PADDING_BOTTOM = 23.8;
+
+/** Returns every rendered `paddingBottom` that contains the bottom safe-area inset, rounded to one decimal */
+function getSafeAreaPaddingBottoms(root: typeof screen.root): number[] {
+    return root
+        .findAll((node) => typeof node.type === 'string')
+        .map((node) => StyleSheet.flatten<ViewStyle>([node.props.style])?.paddingBottom)
+        .filter((paddingBottom): paddingBottom is number => typeof paddingBottom === 'number' && paddingBottom >= SAFE_AREA_PADDING_BOTTOM - 0.01)
+        .map((paddingBottom) => Math.round(paddingBottom * 10) / 10);
+}
 
 const renderInvitePage = (initialParams: WorkspaceSplitNavigatorParamList[typeof SCREENS.WORKSPACE.DYNAMIC_RECEIPT_PARTNERS_INVITE]) =>
     render(
@@ -260,5 +277,68 @@ describe('WorkspaceReceiptPartners', () => {
             expect(screen.getByText(TestHelper.translateLocal('workspace.receiptPartners.uber.centralBillingAccount'))).toBeOnTheScreen();
         });
         expect(screen.getByText(TestHelper.translateLocal('workspace.receiptPartners.uber.centralBillingAccount'))).toBeOnTheScreen();
+    });
+
+    describe('bottom safe-area padding', () => {
+        beforeEach(() => {
+            jest.spyOn(useSafeAreaInsetsModule, 'default').mockReturnValue({top: 0, left: 0, right: 0, bottom: BOTTOM_INSET});
+        });
+
+        it('applies the bottom inset only once below the Send invites confirm button', async () => {
+            // Given a device with a bottom safe-area inset and a workspace with a member who can be invited to Uber
+            await TestHelper.signInWithTestUser();
+            await act(async () => {
+                await Onyx.merge(`${ONYXKEYS.COLLECTION.POLICY}${policyID}`, basePolicy);
+                await Onyx.merge(ONYXKEYS.PERSONAL_DETAILS_LIST, employeePersonalDetails);
+            });
+
+            // When the Send invites list with its confirm footer is rendered
+            renderInvitePage({policyID, integration: UBER_INTEGRATION});
+            await waitForBatchedUpdatesWithAct();
+            await waitFor(() => {
+                expect(screen.getByText(TestHelper.translateLocal('workspace.receiptPartners.uber.sendInvites'))).toBeOnTheScreen();
+            });
+
+            // Then only the footer (pb5 + inset) holds the inset, because a legacy ScreenWrapper spacer on top of it would double the gap under Confirm
+            expect(getSafeAreaPaddingBottoms(screen.root)).toEqual([20 + SAFE_AREA_PADDING_BOTTOM]);
+        });
+
+        it('keeps the bottom inset under the All set confirm button', async () => {
+            // Given a device with a bottom safe-area inset and a workspace with no members left to invite
+            await TestHelper.signInWithTestUser();
+            await act(async () => {
+                await Onyx.merge(`${ONYXKEYS.COLLECTION.POLICY}${policyID}`, {...basePolicy, employeeList: {}});
+                await Onyx.merge(ONYXKEYS.PERSONAL_DETAILS_LIST, employeePersonalDetails);
+            });
+
+            // When the page skips straight to the All set confirmation
+            renderInvitePage({policyID, integration: UBER_INTEGRATION});
+            await waitForBatchedUpdatesWithAct();
+            await waitFor(() => {
+                expect(screen.getByText(TestHelper.translateLocal('workspace.receiptPartners.uber.allSet'))).toBeOnTheScreen();
+            });
+
+            // Then the ScreenWrapper spacer still provides the inset, because the ConfirmationPage footer does not add one itself
+            expect(getSafeAreaPaddingBottoms(screen.root)).toEqual([SAFE_AREA_PADDING_BOTTOM]);
+        });
+
+        it('applies the bottom inset only once on Manage invites', async () => {
+            // Given a device with a bottom safe-area inset and a workspace connected to Uber
+            await TestHelper.signInWithTestUser();
+            await act(async () => {
+                await Onyx.merge(`${ONYXKEYS.COLLECTION.POLICY}${policyID}`, basePolicy);
+                await Onyx.merge(ONYXKEYS.PERSONAL_DETAILS_LIST, employeePersonalDetails);
+            });
+
+            // When the Manage invites page, which has no confirm footer, is rendered
+            renderEditInvitePage({policyID, integration: UBER_INTEGRATION});
+            await waitForBatchedUpdatesWithAct();
+            await waitFor(() => {
+                expect(screen.getByText(TestHelper.translateLocal('workspace.receiptPartners.uber.manageInvites'))).toBeOnTheScreen();
+            });
+
+            // Then the inset appears exactly once, because the list collapses its own padding when the ScreenWrapper already applied it
+            expect(getSafeAreaPaddingBottoms(screen.root)).toEqual([SAFE_AREA_PADDING_BOTTOM]);
+        });
     });
 });
