@@ -82,9 +82,10 @@ const MERCHANT_RULE: Rule = {
 };
 
 /** A Control workspace whose only possible workspace-level rule is eReceipts, so the test decides whether the Rules row is shown. */
-function createSourcePolicy(hasWorkspaceRules: boolean): Policy {
+function createSourcePolicy(hasWorkspaceRules: boolean, areRulesEnabled = true): Policy {
     return {
         ...createRandomPolicy(Number(POLICY_ID), CONST.POLICY.TYPE.CORPORATE),
+        areRulesEnabled,
         preventSelfApproval: false,
         maxExpenseAmountNoReceipt: CONST.DISABLED_MAX_EXPENSE_VALUE,
         maxExpenseAmount: CONST.DISABLED_MAX_EXPENSE_VALUE,
@@ -93,8 +94,8 @@ function createSourcePolicy(hasWorkspaceRules: boolean): Policy {
     };
 }
 
-async function renderForm(hasWorkspaceRules: boolean) {
-    await Onyx.set(`${ONYXKEYS.COLLECTION.POLICY}${POLICY_ID}`, createSourcePolicy(hasWorkspaceRules));
+async function renderForm(hasWorkspaceRules: boolean, areRulesEnabled = true) {
+    await Onyx.set(`${ONYXKEYS.COLLECTION.POLICY}${POLICY_ID}`, createSourcePolicy(hasWorkspaceRules, areRulesEnabled));
     await Onyx.set(`${ONYXKEYS.COLLECTION.RULE}merchantRule`, MERCHANT_RULE);
     await Onyx.set(ONYXKEYS.RAM_ONLY_HAS_RULES_DATA_BEEN_FETCHED, true);
     await Onyx.set(ONYXKEYS.DUPLICATE_WORKSPACE, {name: 'Duplicate', policyID: TARGET_POLICY_ID});
@@ -205,5 +206,18 @@ describe('WorkspaceDuplicateSelectFeaturesForm Rules and Merchant rules', () => 
 
         // Then the merchant rules are still copied, because there is no Rules row they could depend on
         expect(getSentParts()).toMatchObject({expenses: false, codingRules: true});
+    });
+
+    it('hides Rules and Merchant rules when Rules is off on the source', async () => {
+        // Given a Control source with Rules off that still has the rule values every workspace keeps (eReceipts here) and a merchant rule
+        await renderForm(true, false);
+
+        // When the admin continues with every row selected
+        pressContinue();
+
+        // Then neither row is offered or copied, because both live under a Rules page the source doesn't show
+        expect(getRow('rules')).toBeUndefined();
+        expect(getRow('codingRules')).toBeUndefined();
+        expect(getSentParts()).toMatchObject({expenses: false, codingRules: false});
     });
 });

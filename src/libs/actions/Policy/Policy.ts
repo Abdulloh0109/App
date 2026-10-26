@@ -3405,6 +3405,13 @@ function createDraftWorkspace({
     return params;
 }
 
+/**
+ * Whether the duplicate ends up with Rules on. Resolved to an explicit boolean so the workspace menu never falls back to the copied category rules.
+ */
+function shouldDuplicateEnableRules(sourcePolicy: Policy, parts: DuplicatePolicyDataOptions['parts'], policyCategories: DuplicatePolicyDataOptions['policyCategories']): boolean {
+    return !!parts?.expenses && PolicyUtils.arePolicyRulesEnabled(sourcePolicy, policyCategories);
+}
+
 function buildOptimisticDuplicatePolicy(
     sourcePolicy: Policy,
     policyOptions: DuplicatePolicyDataOptions & {distanceCustomUnitID: string; perDiemCustomUnitID: string; customUnitRateID: string},
@@ -3428,7 +3435,6 @@ function buildOptimisticDuplicatePolicy(
     const isInvoicesFeatureSelected = duplicatedParts?.invoices;
     const isInvoiceFieldsFeatureSelected = duplicatedParts?.invoiceFields;
     const isDistanceRatesFeatureSelected = duplicatedParts?.distance;
-    const isRulesFeatureSelected = duplicatedParts?.expenses;
     const isWorkflowsFeatureSelected = duplicatedParts?.exportLayouts;
     const isPerDiemFeatureSelected = duplicatedParts?.perDiem;
     const isOverviewFeatureSelected = duplicatedParts?.overview;
@@ -3472,7 +3478,7 @@ function buildOptimisticDuplicatePolicy(
         areTagsEnabled: isTagsFeatureSelected,
         areDistanceRatesEnabled: isDistanceRatesFeatureSelected,
         areInvoicesEnabled: isInvoicesFeatureSelected,
-        areRulesEnabled: isRulesFeatureSelected,
+        areRulesEnabled: shouldDuplicateEnableRules(sourcePolicy, duplicatedParts, policyOptions.policyCategories),
         areWorkflowsEnabled: isWorkflowsFeatureSelected,
         areReportFieldsEnabled: isReportsFeatureSelected ? sourcePolicy?.areReportFieldsEnabled : false,
         areInvoiceFieldsEnabled: isInvoiceFieldsFeatureSelected ? sourcePolicy?.areInvoiceFieldsEnabled : false,
@@ -3663,6 +3669,9 @@ function buildDuplicatePolicyData(policy: Policy, options: DuplicatePolicyDataOp
             key: `${ONYXKEYS.COLLECTION.POLICY}${targetPolicyID}`,
             value: {
                 pendingAction: null,
+                // DuplicatePolicy's onyxData can carry a later areRulesEnabled for the new policy that disagrees with what was copied.
+                // successData is applied after onyxData, so the duplicate keeps the value we decided on.
+                areRulesEnabled: shouldDuplicateEnableRules(policy, parts, policyCategories),
                 pendingFields: {
                     autoReporting: null,
                     approvalMode: null,

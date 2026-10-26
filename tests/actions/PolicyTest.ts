@@ -2,7 +2,7 @@ import type {GuidedSetupTask} from '@libs/actions/Report';
 import * as APIModule from '@libs/API';
 import {WRITE_COMMANDS} from '@libs/API/types';
 import GoogleTagManager from '@libs/GoogleTagManager';
-import {isPolicyPayer} from '@libs/PolicyUtils';
+import {arePolicyRulesEnabled, isPolicyPayer} from '@libs/PolicyUtils';
 // eslint-disable-next-line no-restricted-imports -- Namespace import is required to spy on ReportUtils without replacing the production module.
 import * as ReportUtils from '@libs/ReportUtils';
 
@@ -18,6 +18,7 @@ import type {
     PolicyJoinMember,
     PolicyReportField,
     Policy as PolicyType,
+    PolicyCategories,
     Report,
     ReportAction,
     ReportActions,
@@ -790,6 +791,141 @@ describe('actions/Policy', () => {
 
             await mockFetch?.resume?.();
             await waitForBatchedUpdates();
+        });
+
+        describe('Rules state of the duplicate after the DuplicatePolicy response', () => {
+            const categoriesWithRules = {Travel: {name: 'Travel', enabled: true, maxAmountNoReceipt: 0}};
+
+            async function duplicateWithServerRulesValues(sourceAreRulesEnabled: boolean | undefined, serverRulesValues: Array<boolean | null>) {
+                const sourcePolicy: PolicyType = {...createRandomPolicy(17, CONST.POLICY.TYPE.CORPORATE), areRulesEnabled: sourceAreRulesEnabled};
+                await Onyx.set(`${ONYXKEYS.COLLECTION.POLICY}${sourcePolicy.id}`, sourcePolicy);
+                await waitForBatchedUpdates();
+                const policyID = Policy.generatePolicyID();
+                mockFetch?.mockAPICommand(WRITE_COMMANDS.DUPLICATE_POLICY, () => ({
+                    jsonCode: 200,
+                    onyxData: serverRulesValues.map((areRulesEnabled) => ({
+                        onyxMethod: Onyx.METHOD.MERGE,
+                        key: `${ONYXKEYS.COLLECTION.POLICY}${policyID}` as const,
+                        value: {areRulesEnabled},
+                    })),
+                }));
+
+                Policy.duplicateWorkspace(sourcePolicy, {
+                    currentUserAccountID: ESH_ACCOUNT_ID,
+                    currentUserEmail: ESH_EMAIL,
+                    policyName: 'Duplicate',
+                    policyID: sourcePolicy.id,
+                    targetPolicyID: policyID,
+                    welcomeNote: 'Join my policy',
+                    personalDetailsByLogins: {},
+                    policyCategories: categoriesWithRules,
+                    parts: {categories: true, expenses: true},
+                    localCurrency: 'USD',
+                });
+                await waitForBatchedUpdates();
+
+                const policy = await getOnyxValue(`${ONYXKEYS.COLLECTION.POLICY}${policyID}`);
+                const categories = await getOnyxValue(`${ONYXKEYS.COLLECTION.POLICY_CATEGORIES}${policyID}`);
+                return arePolicyRulesEnabled(policy, categories);
+            }
+
+            it('never shows Rules on the duplicate at any point of the flow when the source has Rules off', async () => {
+                // Given a Control source with Rules off whose copied categories carry a rule, and a response that ends with areRulesEnabled: true
+                const sourcePolicy: PolicyType = {...createRandomPolicy(17, CONST.POLICY.TYPE.CORPORATE), areRulesEnabled: false};
+                await Onyx.set(`${ONYXKEYS.COLLECTION.POLICY}${sourcePolicy.id}`, sourcePolicy);
+                await waitForBatchedUpdates();
+                const policyID = Policy.generatePolicyID();
+                const policyKey = `${ONYXKEYS.COLLECTION.POLICY}${policyID}` as const;
+                mockFetch?.mockAPICommand(WRITE_COMMANDS.DUPLICATE_POLICY, () => ({
+                    jsonCode: 200,
+                    onyxData: [
+                        {onyxMethod: Onyx.METHOD.MERGE, key: policyKey, value: {areRulesEnabled: false}},
+                        {onyxMethod: Onyx.METHOD.MERGE, key: policyKey, value: {areRulesEnabled: true}},
+                    ],
+                }));
+
+                // Every value the workspace menu could render is recorded, so a value that is overwritten later in the flow still counts
+                let latestPolicy: OnyxEntry<PolicyType>;
+                let latestCategories: OnyxEntry<PolicyCategories>;
+                const rulesShownTrace: boolean[] = [];
+                const record = () => {
+                    if (latestPolicy) {
+                        rulesShownTrace.push(arePolicyRulesEnabled(latestPolicy, latestCategories));
+                    }
+                };
+                const policyConnection = Onyx.connect({
+                    key: policyKey,
+                    callback: (value) => {
+                        latestPolicy = value;
+                        record();
+                    },
+                });
+                const categoriesConnection = Onyx.connect({
+                    key: `${ONYXKEYS.COLLECTION.POLICY_CATEGORIES}${policyID}`,
+                    callback: (value) => {
+                        latestCategories = value;
+                        record();
+                    },
+                });
+
+                // When the workspace is duplicated with the pre-checked Rules part, as in the reported steps
+                Policy.duplicateWorkspace(sourcePolicy, {
+                    currentUserAccountID: ESH_ACCOUNT_ID,
+                    currentUserEmail: ESH_EMAIL,
+                    policyName: 'Duplicate',
+                    policyID: sourcePolicy.id,
+                    targetPolicyID: policyID,
+                    welcomeNote: 'Join my policy',
+                    personalDetailsByLogins: {},
+                    policyCategories: categoriesWithRules,
+                    parts: {categories: true, expenses: true},
+                    localCurrency: 'USD',
+                });
+                await waitForBatchedUpdates();
+                Onyx.disconnect(policyConnection);
+                Onyx.disconnect(categoriesConnection);
+
+                // Then Rules is never shown, neither optimistically nor after the response, because successData is flushed with onyxData in the same Onyx.update
+                expect(rulesShownTrace.length).toBeGreaterThan(0);
+                expect(rulesShownTrace).not.toContain(true);
+            });
+
+            it('keeps Rules off when the response turns Rules on after the full policy merge', async () => {
+                // Given a Control source with Rules off whose copied categories carry a rule, and a DuplicatePolicy response that ends with areRulesEnabled: true,
+                // which is the order of the updates reported on the issue
+                // When the workspace is duplicated with the pre-checked Rules part
+                const isRulesShown = await duplicateWithServerRulesValues(false, [false, true]);
+
+                // Then the duplicate still has Rules off, because the source had it off and nothing that is copied can turn it on
+                expect(isRulesShown).toBe(false);
+            });
+
+            it('keeps Rules off when the response clears areRulesEnabled', async () => {
+                // Given a response that sends areRulesEnabled: null, which would leave the copied category rules to decide through the Control fallback
+                // When the workspace is duplicated
+                const isRulesShown = await duplicateWithServerRulesValues(false, [null]);
+
+                // Then Rules stays off, because the flag ends as an explicit false
+                expect(isRulesShown).toBe(false);
+            });
+
+            it('keeps Rules on when the source has Rules on and Rules is copied', async () => {
+                // Given a Control source with Rules on
+                // When the workspace is duplicated with Rules and the response agrees
+                const isRulesShown = await duplicateWithServerRulesValues(true, [true]);
+
+                // Then the duplicate has Rules on, so copying Rules still works
+                expect(isRulesShown).toBe(true);
+            });
+
+            it('keeps Rules on for a migrated Control source whose Rules come from category rules', async () => {
+                // Given a migrated Control source where areRulesEnabled is unset and Rules is on only through its category rules
+                // When the workspace is duplicated with Rules and the response leaves the flag unset
+                const isRulesShown = await duplicateWithServerRulesValues(undefined, [null]);
+
+                // Then the duplicate keeps Rules, because the flag is resolved from the source the same way the workspace menu resolves it
+                expect(isRulesShown).toBe(true);
+            });
         });
 
         it('duplicate workspace with 3+ members creates optimistic announce chat using currentUserAccountID', async () => {
