@@ -10602,6 +10602,24 @@ function generateIsEmptyReport(report: OnyxEntry<Report>, isReportArchived: bool
     return !lastVisibleMessage.lastMessageText;
 }
 
+/**
+ * Whether another user has a visible action newer than lastReadTime. "Mark as unread" always moves lastReadTime to just before
+ * such an action, while a report the current user merely posted in last has none, so this tells the two apart on any device
+ * that has the actions, even though only lastReadTime reaches the server.
+ */
+function hasUnreadActionFromOtherUser(reportIDs: Array<string | undefined>, lastReadTime: string): boolean {
+    return reportIDs.some((reportID) =>
+        Object.values(allReportActions?.[`${ONYXKEYS.COLLECTION.REPORT_ACTIONS}${reportID}`] ?? {}).some(
+            (action) =>
+                action.created > lastReadTime &&
+                action.actorAccountID !== deprecatedCurrentUserAccountID &&
+                !isDeletedAction(action) &&
+                // Same rule markCommentAsUnread uses when it picks the action to mark
+                (!isWhisperAction(action) || action.actionName === CONST.REPORT.ACTIONS.TYPE.ACTIONABLE_MENTION_WHISPER),
+        ),
+    );
+}
+
 // We need oneTransactionThreadReport to get the correct last visible action created
 function isUnread(report: OnyxEntry<Report>, oneTransactionThreadReport: OnyxEntry<Report>, isReportArchived: boolean | undefined, derivedIsEmptyReport: boolean | undefined): boolean {
     if (!report) {
@@ -10628,7 +10646,12 @@ function isUnread(report: OnyxEntry<Report>, oneTransactionThreadReport: OnyxEnt
     const drivingActorAccountID =
         (oneTransactionThreadReport?.lastVisibleActionCreated ?? '') > (report?.lastVisibleActionCreated ?? '') ? oneTransactionThreadReport?.lastActorAccountID : report?.lastActorAccountID;
 
-    if (isUnreadFromTimestamp && drivingActorAccountID === deprecatedCurrentUserAccountID && !(lastReadTime < lastMentionedTime)) {
+    if (
+        isUnreadFromTimestamp &&
+        drivingActorAccountID === deprecatedCurrentUserAccountID &&
+        !(lastReadTime < lastMentionedTime) &&
+        !hasUnreadActionFromOtherUser([report.reportID, oneTransactionThreadReport?.reportID], lastReadTime)
+    ) {
         return false;
     }
 

@@ -6719,6 +6719,64 @@ describe('actions/Report', () => {
         });
     });
 
+    describe('markCommentAsUnread from the LHN on a chat the current user replied to last', () => {
+        const REPORT_ID = '101234';
+        const CURRENT_USER_ACCOUNT_ID = 1;
+        const OTHER_USER_ACCOUNT_ID = 2;
+
+        it('keeps the chat unread once the server copy of the report replaces the optimistic lastActorAccountID', async () => {
+            // Given a chat whose newest message is the current user's reply to someone else, as the server stores it
+            global.fetch = TestHelper.createGlobalFetchMock();
+            await Onyx.set(ONYXKEYS.SESSION, {accountID: CURRENT_USER_ACCOUNT_ID, email: 'me@test.com'});
+            const reportActions: OnyxTypes.ReportActions = {
+                '1': {
+                    ...createRandomReportAction(1),
+                    reportActionID: '1',
+                    actionName: CONST.REPORT.ACTIONS.TYPE.ADD_COMMENT,
+                    actorAccountID: OTHER_USER_ACCOUNT_ID,
+                    created: '2024-03-01 12:00:00.000',
+                    message: [{type: 'COMMENT', html: 'Hi', text: 'Hi'}],
+                    originalMessage: {html: 'Hi', whisperedTo: []},
+                },
+                '2': {
+                    ...createRandomReportAction(2),
+                    reportActionID: '2',
+                    actionName: CONST.REPORT.ACTIONS.TYPE.ADD_COMMENT,
+                    actorAccountID: CURRENT_USER_ACCOUNT_ID,
+                    created: '2024-03-01 12:05:00.000',
+                    message: [{type: 'COMMENT', html: 'Thanks!', text: 'Thanks!'}],
+                    originalMessage: {html: 'Thanks!', whisperedTo: []},
+                },
+            };
+            const serverReport: OnyxTypes.Report = {
+                reportID: REPORT_ID,
+                lastMessageText: 'Thanks!',
+                lastReadTime: '2024-03-01 12:06:00.000',
+                lastVisibleActionCreated: '2024-03-01 12:05:00.000',
+                lastActorAccountID: CURRENT_USER_ACCOUNT_ID,
+            };
+            await Onyx.set(`${ONYXKEYS.COLLECTION.REPORT}${REPORT_ID}`, serverReport);
+            await Onyx.set(`${ONYXKEYS.COLLECTION.REPORT_ACTIONS}${REPORT_ID}`, reportActions);
+            await waitForBatchedUpdates();
+
+            // When the user marks it unread from the LHN, where no specific action is passed
+            Report.markCommentAsUnread(REPORT_ID, reportActions, {} as OnyxTypes.ReportAction, CURRENT_USER_ACCOUNT_ID, false);
+            await waitForBatchedUpdates();
+            const markedReport = await getOnyxValue(`${ONYXKEYS.COLLECTION.REPORT}${REPORT_ID}`);
+            expect(ReportUtils.isUnread(markedReport, undefined, false, false)).toBe(true);
+
+            // And the report later comes back from the server (OpenReport, ReconnectApp, or simply another device), which never
+            // learned the optimistic lastActorAccountID because MarkAsUnread only sends lastReadTime
+            await Onyx.merge(`${ONYXKEYS.COLLECTION.REPORT}${REPORT_ID}`, {lastActorAccountID: CURRENT_USER_ACCOUNT_ID});
+            await waitForBatchedUpdates();
+
+            // Then the chat is still unread, because the other user's message is newer than the lastReadTime the mark set
+            const refreshedReport = await getOnyxValue(`${ONYXKEYS.COLLECTION.REPORT}${REPORT_ID}`);
+            expect(refreshedReport?.lastReadTime).toBe('2024-03-01 11:59:59.999');
+            expect(ReportUtils.isUnread(refreshedReport, undefined, false, false)).toBe(true);
+        });
+    });
+
     describe('openReport with hasOnceLoadedReportActions', () => {
         /** Puts a manual unread mark on the report, the way markCommentAsUnread does. */
         async function givenAManualUnreadMark(reportID: string) {

@@ -29514,3 +29514,87 @@ describe('hasOutstandingChildRequest', () => {
         expect(hasOutstandingChildRequest(invoiceChatReport, invoiceReportID, currentUserEmail, currentUserAccountID, undefined, undefined)).toBe(false);
     });
 });
+
+describe('isUnread when the current user sent the newest message', () => {
+    const MARKED_REPORT_ID = '101234';
+    const otherUserAccountID = currentUserAccountID + 1;
+    const otherUserMessageCreated = '2024-03-01 12:00:00.000';
+    const ownReplyCreated = '2024-03-01 12:05:00.000';
+
+    beforeAll(async () => {
+        // Earlier tests in this file switch the session, and the self-authored rule reads the current user from it
+        await Onyx.set(ONYXKEYS.SESSION, {email: currentUserEmail, accountID: currentUserAccountID});
+        await waitForBatchedUpdates();
+    });
+
+    afterEach(async () => {
+        await Onyx.set(`${ONYXKEYS.COLLECTION.REPORT_ACTIONS}${MARKED_REPORT_ID}`, null);
+        await waitForBatchedUpdates();
+    });
+
+    // The report as the server stores it: the current user replied last, so lastActorAccountID is theirs
+    const getServerReport = (lastReadTime: string): Report => ({
+        ...LHNTestUtils.getFakeReport(),
+        reportID: MARKED_REPORT_ID,
+        lastMessageText: 'Thanks!',
+        lastVisibleActionCreated: ownReplyCreated,
+        lastActorAccountID: currentUserAccountID,
+        lastReadTime,
+    });
+
+    const setActions = (otherUserAction: Partial<ReportAction> = {}) =>
+        Onyx.set(`${ONYXKEYS.COLLECTION.REPORT_ACTIONS}${MARKED_REPORT_ID}`, {
+            '1': {
+                ...LHNTestUtils.getFakeReportAction(),
+                reportActionID: '1',
+                actionName: CONST.REPORT.ACTIONS.TYPE.ADD_COMMENT,
+                actorAccountID: otherUserAccountID,
+                created: otherUserMessageCreated,
+                ...otherUserAction,
+            },
+            '2': {
+                ...LHNTestUtils.getFakeReportAction(),
+                reportActionID: '2',
+                actionName: CONST.REPORT.ACTIONS.TYPE.ADD_COMMENT,
+                actorAccountID: currentUserAccountID,
+                created: ownReplyCreated,
+            },
+        });
+
+    it('is unread on another device after the chat was marked unread', async () => {
+        // Given another device that has the chat's actions and only received the lastReadTime that MarkAsUnread sends,
+        // which is just before the other user's message, while lastActorAccountID still names the current user
+        await setActions();
+        await waitForBatchedUpdates();
+
+        // When the LHN asks whether the chat is unread
+        const result = isUnread(getServerReport('2024-03-01 11:59:59.999'), undefined, false, false);
+
+        // Then it is unread, because a message from someone else is newer than lastReadTime, which only a deliberate mark leaves behind
+        expect(result).toBe(true);
+    });
+
+    it('stays read when the current user only replied after reading the other message', async () => {
+        // Given the self-authored case from #91443: lastReadTime covers the other user's message and only the current user's reply is newer
+        await setActions();
+        await waitForBatchedUpdates();
+
+        // When the LHN asks whether the chat is unread
+        const result = isUnread(getServerReport('2024-03-01 12:01:00.000'), undefined, false, false);
+
+        // Then it stays read, because the current user's own message must never make a chat unread for them
+        expect(result).toBe(false);
+    });
+
+    it('does not count a whisper from another user as a reason to be unread', async () => {
+        // Given the only newer action from someone else is a whisper, which markCommentAsUnread never picks either
+        await setActions({message: [{type: 'COMMENT', html: 'Hi', text: 'Hi', whisperedTo: [currentUserAccountID]}]});
+        await waitForBatchedUpdates();
+
+        // When the LHN asks whether the chat is unread
+        const result = isUnread(getServerReport('2024-03-01 11:59:59.999'), undefined, false, false);
+
+        // Then the self-authored rule still applies
+        expect(result).toBe(false);
+    });
+});
